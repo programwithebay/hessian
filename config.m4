@@ -59,5 +59,5 @@ if test "$PHP_HESSIAN" != "no"; then
   dnl
   dnl PHP_SUBST(HESSIAN_SHARED_LIBADD)
 
-  PHP_NEW_EXTENSION(hessian, hessian.c, $ext_shared)
+  PHP_NEW_EXTENSION(hessian, hessian.c dubbo_client.c dubbo_storage.c, $ext_shared)
 fi

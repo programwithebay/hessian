@@ -26,22 +26,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_hessian.h"
-
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_construct, 0, 0, 1)
-	ZEND_ARG_INFO(0, config) /* array */
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_setConnectTimeout, 0, 0, 1)
-	ZEND_ARG_INFO(0, timeout) /* long */
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_callService, 0, 0, 3)
-	ZEND_ARG_INFO(0, serviceName) /* string serviceName */
-	ZEND_ARG_INFO(0, method) /* string method */
-	ZEND_ARG_INFO(0, params) /* array params */
-ZEND_END_ARG_INFO()
-
+#include "php_hessian_int.h"
 
 
 /* If you declare any globals in php_hessian.h uncomment this:
@@ -61,51 +46,6 @@ PHP_INI_END()
 */
 /* }}} */
 
-zend_class_entry *dubbo_client_class_entry;
-
-
-/*
-construct
-*/
-static PHP_METHOD(DubboClient, __construct)
-{
-	RETURN_TRUE;
-}
-
-
-/*
-setConnectTimeout
-*/
-static PHP_METHOD(DubboClient, setConnectTimeout)
-{
-	zval* self=getThis();
-	long timeout;
-
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &timeout)) {
-		return;
-	}
-
-	zend_update_property_long(dubbo_client_class_entry, self, "connectTimeout", sizeof("connectTimeout")-1,  timeout);
-
-	return;
-}
-
-
-/*
-call service
-*/
-static PHP_METHOD(DubboClient, callService)
-{
-	RETURN_TRUE;
-}
-
-
-const zend_function_entry hessian_functions[] = {
-	PHP_ME(DubboClient, __construct,		arginfo_hessian_construct,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, setConnectTimeout,		arginfo_hessian_setConnectTimeout,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, callService,		arginfo_hessian_callService,		ZEND_ACC_PUBLIC)
-	PHP_FE_END	/* Must be the last line in hessian_functions[] */
-};
 
 
 
@@ -128,6 +68,7 @@ static void php_hessian_init_globals(zend_hessian_globals *hessian_globals)
 */
 /* }}} */
 
+
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(hessian)
@@ -138,11 +79,13 @@ PHP_MINIT_FUNCTION(hessian)
 
 	zend_class_entry ce;
 
-	//init DubboClient Class
+	//register DubboClient Class
 	INIT_CLASS_ENTRY(ce, "DubboClient", hessian_functions);
 	dubbo_client_class_entry = zend_register_internal_class(&ce TSRMLS_CC);
 	zend_declare_property_long(dubbo_client_class_entry, "connectTimeout", sizeof("connectTimeout")-1, 0, ZEND_ACC_PROTECTED TSRMLS_CC);
-	
+
+
+	//register DubboStorageAbstrace Class
 	
 	return SUCCESS;
 }

@@ -18,14 +18,10 @@
 
 /* $Id$ */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include "php.h"
 #include "php_ini.h"
 #include "ext/standard/info.h"
-#include "dubbo_storage.h"
+
 
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dubo_storage_factory_create, 0, 0, 2)
@@ -33,23 +29,29 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_dubo_storage_factory_create, 0, 0, 2)
 	ZEND_ARG_INFO(0, config) /* array */
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dubo_file_storage_get, 0, 0, 1)
+	ZEND_ARG_INFO(0, key) /* string */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dubo_storage_abstract_construct, 0, 0, 1)
+	ZEND_ARG_INFO(0, config) /* array */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dubo_storage_abstract_getconfig, 0, 0, 1)
+	ZEND_ARG_INFO(0, key) /* string */
+ZEND_END_ARG_INFO()
+
 
 
 
 zend_class_entry *dubbo_storage_factory_class_entry;
+zend_class_entry *dubbo_storage_abstract_class_entry;
+zend_class_entry *dubbo_file_storage_class_entry;
 
 
+/****************************Begin DubboStorageFactory**************************/
 /*
-construct
-*/
-static PHP_METHOD(DubboStorageFactory, create)
-{
-	RETURN_TRUE;
-}
-
-
-/*
-setConnectTimeout
+create storage
 */
 static PHP_METHOD(DubboStorageFactory, create)
 {
@@ -62,15 +64,64 @@ static PHP_METHOD(DubboStorageFactory, create)
 
 	if (strncasecmp(type, "file", siezof("file")-1)){
 	}else if (strncasecmp(type, "apc", siezof("apc")-1)){
+		//TODO:暂没有实现
 	}else{
 		//TODO:抛出异常
 	}
 }
+/*************************End DubboStorageFactory**********************************/
 
 
 
+/****************************Begin DubboStorageAbstract**************************/
+//construct function
+static PHP_METHOD(DubboStorageAbstract, __construct)
+{
+}
+
+//get config
+static PHP_METHOD(DubboStorageAbstract, getConfig)
+{
+}
+
+
+/****************************End DubboStorageAbstract**********************************/
+
+
+
+
+
+
+/****************************Begin DubboFileStorage**************************/
+/*
+create storage
+*/
+static PHP_METHOD(DubboFileStorage, get)
+{
+	
+}
+/*************************End DubboFileStorage**********************************/
+
+
+
+
+
+//DubboStorageFactory functions
 const zend_function_entry dubbo_storage_factory_functions[] = {
 	PHP_ME(DubboStorageFactory, create,		arginfo_dubo_storage_factory_create,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
+//DubboFileStorage functions
+const zend_function_entry dubbo_file_storage_functions[] = {
+	PHP_ME(DubboFileStorage, get,		arginfo_dubo_file_storage_get,		ZEND_ACC_PUBLIC)
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
+//DubboStorageAbstract functions
+const zend_function_entry dubbo_storage_abstract_functions[] = {
+	PHP_ME(DubboStorageAbstract, __construct,		arginfo_dubo_storage_abstract_construct,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboStorageAbstract, getConfig,		arginfo_dubo_storage_abstract_getconfig,		ZEND_ACC_PROTECTED)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 
