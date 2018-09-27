@@ -28,11 +28,17 @@ extern zend_class_entry *dubbo_client_class_entry;
 extern zend_class_entry *dubbo_storage_factory_class_entry;
 extern zend_class_entry *dubbo_file_storage_class_entry;
 extern zend_class_entry *dubbo_storage_abstract_class_entry;
+extern zend_class_entry *idubbo_storage_interface_entry;
 
 
 //class function
 extern const zend_function_entry hessian_functions[];
 extern const zend_function_entry dubbo_storage_factory_functions[];
+extern const zend_function_entry idubbo_storage_interface_functions[];
+extern const zend_function_entry dubbo_storage_abstract_functions[];
+extern const zend_function_entry dubbo_file_storage_functions[];
+
+
 
 
 /*
