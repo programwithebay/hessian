@@ -78,11 +78,7 @@ PHP_MINIT_FUNCTION(hessian)
 	*/
 
 	zend_class_entry ce_dubbo_client, ce_idubbo_storage, ce_dubbo_storage_abstract;
-	zval *dubbo_storage_abstract_property_config;
-
-
 	
-
 	//register DubboClient Class
 	INIT_CLASS_ENTRY(ce_dubbo_client, "DubboClient", hessian_functions);
 	dubbo_client_class_entry = zend_register_internal_class(&ce_dubbo_client TSRMLS_CC);
@@ -94,12 +90,12 @@ PHP_MINIT_FUNCTION(hessian)
 	idubbo_storage_interface_entry = zend_register_internal_interface(&ce_idubbo_storage TSRMLS_CC);
 	
 
-	//register DubboStorageAbstrace Class
+	//register DubboStorageAbstract Class
 	INIT_CLASS_ENTRY(ce_dubbo_storage_abstract, "DubboStorageAbstract", dubbo_storage_abstract_functions);
 	dubbo_storage_abstract_class_entry= zend_register_internal_class(&ce_dubbo_storage_abstract TSRMLS_CC);
-	ALLOC_ZVAL(dubbo_storage_abstract_property_config);
-	INIT_ZVAL(*dubbo_storage_abstract_property_config);
-	zend_declare_property(dubbo_storage_abstract_class_entry, "config", sizeof("config")-1, dubbo_storage_abstract_property_config, ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_class_implements(dubbo_storage_abstract_class_entry TSRMLS_CC, 1, idubbo_storage_interface_entry);
+	dubbo_storage_abstract_class_entry->ce_flags |= ZEND_ACC_IMPLICIT_ABSTRACT_CLASS;
+	zend_declare_property_null(dubbo_storage_abstract_class_entry, "config", sizeof("config")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
 	
 	return SUCCESS;
 }
