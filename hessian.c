@@ -26,6 +26,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_hessian.h"
+#include "hessian_common.h"
 #include "php_hessian_int.h"
 
 
@@ -92,6 +93,7 @@ PHP_MINIT_FUNCTION(hessian)
 
 	//register DubboStorageAbstract Class
 	INIT_CLASS_ENTRY(ce_dubbo_storage_abstract, "DubboStorageAbstract", dubbo_storage_abstract_functions);
+	//dubbo_storage_abstract_class_entry= zend_register_internal_class_ex(&ce_dubbo_storage_abstract, zend_standard_class_def, NULL TSRMLS_CC);
 	dubbo_storage_abstract_class_entry= zend_register_internal_class(&ce_dubbo_storage_abstract TSRMLS_CC);
 	zend_class_implements(dubbo_storage_abstract_class_entry TSRMLS_CC, 1, idubbo_storage_interface_entry);
 	dubbo_storage_abstract_class_entry->ce_flags |= ZEND_ACC_IMPLICIT_ABSTRACT_CLASS;
@@ -101,7 +103,14 @@ PHP_MINIT_FUNCTION(hessian)
 	//register DubboFileStorage Class
 	INIT_CLASS_ENTRY(ce_dubbo_file_storage, "DubboFileStorage", dubbo_file_storage_functions);
 	dubbo_file_storage_class_entry = zend_register_internal_class_ex(&ce_dubbo_file_storage, dubbo_storage_abstract_class_entry, NULL TSRMLS_CC);
-	zend_declare_property_null(dubbo_file_storage_class_entry, "baseBath", sizeof("baseBath")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
+	//not a abstract class
+	if ( (dubbo_file_storage_class_entry->ce_flags & ZEND_ACC_EXPLICIT_ABSTRACT_CLASS)){
+		dubbo_file_storage_class_entry->ce_flags -= ZEND_ACC_EXPLICIT_ABSTRACT_CLASS;
+	}
+	if ( (dubbo_file_storage_class_entry->ce_flags & ZEND_ACC_IMPLICIT_ABSTRACT_CLASS)){
+		dubbo_file_storage_class_entry->ce_flags -= ZEND_ACC_IMPLICIT_ABSTRACT_CLASS;
+	}
+	zend_declare_property_null(dubbo_file_storage_class_entry, ZEND_STRL(BASE_PATH),  ZEND_ACC_PROTECTED TSRMLS_CC);
 	
 	return SUCCESS;
 }

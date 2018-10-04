@@ -20,10 +20,14 @@
 
 #include "php.h"
 #include "php_ini.h"
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "ext/standard/php_smart_str_public.h"
 #include "ext/json/php_json.h"
 #include "ext/standard/info.h"
 #include "ext/standard/php_filestat.h"
+#include "hessian_common.h"
 
 
 
@@ -141,7 +145,7 @@ static PHP_METHOD(DubboStorageAbstract, getConfig)
 	}
 
 	self=getThis();
-	config = zend_read_property(Z_OBJCE_P(self), self, ZEND_STRL("config"), 1 TSRMLS_DC);
+	config = zend_read_property(dubbo_storage_abstract_class_entry, self, ZEND_STRL("config"), 1 TSRMLS_DC);
 
 
 	res = zend_hash_find(HASH_OF(config), key, key_len, (void **)&value_ptr);
@@ -250,11 +254,7 @@ static PHP_METHOD(DubboStorageAbstract, decode)
 	}
 
 	/* For BC reasons, the bool $assoc overrides the long $options bit for PHP_JSON_OBJECT_AS_ARRAY */
-	if (assoc) {
-		options |=  PHP_JSON_OBJECT_AS_ARRAY;
-	} else {
-		options &= ~PHP_JSON_OBJECT_AS_ARRAY;
-	}
+	options |=  PHP_JSON_OBJECT_AS_ARRAY;
 
 	php_json_decode_ex(return_value, str, str_len, options, depth TSRMLS_CC);
 }
@@ -270,11 +270,133 @@ static PHP_METHOD(DubboStorageAbstract, decode)
 
 
 /****************************Begin DubboFileStorage**************************/
+//check file
+//mode 0:file, 1:dir
+//return 
+//1:file
+//2:dir
+char stat_file(char *file_name, char mode){
+	char res;
+	struct stat file_stat;
+
+	if (stat(file_name, &file_stat) < 0)
+    {
+        php_error_docref(NULL, E_ERROR, "get file:%s info error", file_name);
+		return;
+    }
+	switch(mode){
+		case 0:
+			//test is a file
+			res = S_ISREG(file_stat.st_mode);
+			break;
+		case 1:
+			//test ia a dir
+			res = S_ISDIR(file_stat.st_mode);
+			break;
+	}
+	return res;
+}
+
+
+/*
+get class basePath
+*/
+zval* get_dubbo_file_storage_basepath(zval *this){
+	zval *config;
+	zval **value_ptr;
+	char *file_name;
+	zval *value;
+	int len, i;
+	
+
+	config = zend_read_property(dubbo_file_storage_class_entry, this, ZEND_STRL(BASE_PATH), 1 TSRMLS_DC);
+	if (i_zend_is_true(config)){
+		return config;
+	}
+
+	//read property from array
+	config = zend_read_property(dubbo_file_storage_class_entry, this, ZEND_STRL("config"), 1 TSRMLS_DC);
+	if (SUCCESS != zend_hash_find(HASH_OF(config), ZEND_STRS(BASE_PATH), (void **)&value_ptr)){
+		php_error_docref(NULL, E_ERROR, "base_path is not set");
+		return;
+	}
+
+	//是否为目录
+	file_name = Z_STRVAL_PP(value_ptr);
+    if (stat_file(file_name, 1) < 0)
+    {
+        php_error_docref(NULL, E_ERROR, "%s is not a dir", file_name);
+		return;
+    }
+	
+	len = Z_STRLEN_PP(value_ptr);
+	i = len - 1;
+	while(i >= 0){
+		if ('/' == *(file_name+i)){
+			*(file_name+i) = 0;
+			i--;
+			len--;
+			continue;
+		}else{
+			break;
+		}
+	}
+	Z_STRLEN_PP(value_ptr) = len;
+	zend_update_property(Z_OBJCE_P(this), this, ZEND_STRL(BASE_PATH), *value_ptr TSRMLS_CC);
+
+	return *value_ptr;
+}
+
 /*
 get by name
 */
 static PHP_METHOD(DubboFileStorage, get)
 {
+	char *str;
+	zval* self;
+	int str_len;
+	zval *base_path;
+	char *path;
+	zval *value;
+	int fd;
+	int nread;
+	char buf[8192];	//max length is 8k
+	long options = 0;
+	long depth = 512;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+		return;
+	}
+
+	self=getThis();
+	
+	base_path = get_dubbo_file_storage_basepath(self);
+	path = pemalloc(256, 0);
+	sprintf(path,"%s/%s", Z_STRVAL_P(base_path), str);
+	str_efree_rel(base_path->value.str.val);
+	Z_STRVAL_P(base_path) = path;
+	Z_STRLEN_P(base_path) = sizeof(path) - 1;	//todo -1 or not?
+
+	//is a file?
+	if (stat_file(path, 0) < 0){
+        php_error_docref(NULL, E_ERROR, "file:%s is not a file", path);
+		return;
+    }
+
+	//get content
+	fd = open(path, O_RDONLY);
+	if (-1 == fd){
+		php_error_docref(NULL, E_ERROR, "open file %s error", path);
+	}
+	nread = read(fd, buf, 8191);
+	if (-1 == nread){
+		
+		php_error_docref(NULL, E_ERROR, "read file %s error", path);
+		close(fd);
+	}
+	close(fd);
+	options |=  PHP_JSON_OBJECT_AS_ARRAY;
+	php_json_decode_ex(return_value, buf, nread, options, depth TSRMLS_CC);
 	
 }
 
@@ -283,46 +405,44 @@ set
 */
 static PHP_METHOD(DubboFileStorage, set)
 {
-	
-}
-
-/*
-get base path
-*/
-static PHP_METHOD(DubboFileStorage, getBasePath)
-{
+	char *key, *value;
 	zval* self;
-	zval *config;
-	zval **value_ptr;
-	char *file_name;
-	zval *value;
+	int key_len, value_len;
+	zval *base_path;
+	char *path;
+	int fd;
+	int nwrite;
+	long options = 0;
+	long depth = 512;
 
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", &key, &key_len, &value, &value_len) == FAILURE) {
+		return;
+	}
 
 	self=getThis();
-	config = zend_read_property(Z_OBJCE_P(self), self, ZEND_STRL("basePath"), 1 TSRMLS_DC);
-	if (!i_zend_is_true(config)){
-		config = zend_read_property(Z_OBJCE_P(self), self, ZEND_STRL("config"), 1 TSRMLS_DC);
-		if (SUCCESS != zend_hash_find(HASH_OF(config), ZEND_STRL("base_path"), (void **)&value_ptr)){
-			
-		}else{
-			php_error_docref(NULL, E_WARNING, "path:  is not set");
-		}
-		//是否为目录
-		//@todo:目前是直接调用PHP函数，性能有点低
-		file_name = Z_STRVAL(**value_ptr);
-		php_stat(ZEND_STRL(file_name),FS_IS_DIR,value  TSRMLS_CC);
-		if (Z_BVAL(*value)< 1){
-			php_error_docref(NULL, E_WARNING, "path: %s is not a idr", Z_STRVAL(**value_ptr));
-		}
-		//todo:rtrim
-		zend_update_property(Z_OBJCE_P(self), self, ZEND_STRL("base_path"), *value_ptr TSRMLS_CC);
-		RETURN_ZVAL(*value_ptr, 1, 1);
-		
-	}else{
-		RETURN_ZVAL(config, 1, 1);
-	}
-}
+	base_path = get_dubbo_file_storage_basepath(self);
+	path = pemalloc(256, 0);
+	sprintf(path,"%s/%s", Z_STRVAL_P(base_path), key);
+	str_efree_rel(base_path->value.str.val);
+	Z_STRVAL_P(base_path) = path;
+	Z_STRLEN_P(base_path) = sizeof(path) - 1;	//todo -1 or not?
 
+
+	//get content
+	fd = open(path, O_WRONLY|O_CREAT);
+	if (-1 == fd){
+		php_error_docref(NULL, E_ERROR, "open file %s error", path);
+	}
+	nwrite = write(fd, value, value_len);
+	if (value_len != nwrite){
+		
+		php_error_docref(NULL, E_ERROR, "write file %s error", path);
+		close(fd);
+	}
+
+	close(fd);
+	
+}
 
 /*************************End DubboFileStorage**********************************/
 
@@ -358,8 +478,6 @@ const zend_function_entry dubbo_storage_abstract_functions[] = {
 const zend_function_entry dubbo_file_storage_functions[] = {
 	PHP_ME(DubboFileStorage, get,		arginfo_dubo_file_storage_get,		ZEND_ACC_PUBLIC)
 	PHP_ME(DubboFileStorage, set,		arginfo_dubo_file_storage_set,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboFileStorage, getBasePath,		arginfo_dubo_file_storage_get_base_path,		ZEND_ACC_PROTECTED)
-	
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 
