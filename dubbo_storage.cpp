@@ -106,10 +106,14 @@ static PHP_METHOD(DubboStorageFactory, create)
 	}
 
 	if (strncasecmp(type, "file", siezof("file")-1)){
-	}else if (strncasecmp(type, "apc", siezof("apc")-1)){
-		//TODO:暂没有实现
+		Z_TYPE_P(return_value) = IS_OBJECT;
+		object_init_ex(return_value, dubbo_file_storage_class_entry);
+		Z_SET_REFCOUNT_P(return_value, 1);
+		Z_SET_ISREF_P(return_value);
+	
 	}else{
 		//TODO:抛出异常
+		php_error_docref(NULL, E_ERROR, "unsupport storage:%s", type);
 	}
 }
 /*************************End DubboStorageFactory**********************************/
