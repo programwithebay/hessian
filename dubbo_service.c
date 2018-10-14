@@ -17,17 +17,43 @@
 */
 
 /* $Id$ */
+#include "php.h"
+#include "php_ini.h"
+#include "ext/standard/info.h"
 
 
-#include "dubbo_client.h"
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dubbo_service_construct, 0, 0, 3)
+	ZEND_ARG_INFO(0, name) /* array */
+	ZEND_ARG_INFO(0, providers) /* array */
+	ZEND_ARG_INFO(0, consumers) /* array */
+ZEND_END_ARG_INFO()
 
-DubboClient::DubboClient(){
-	zend_hash_init(serviceConfig, 4, 0, 0, 0);
+
+
+zend_class_entry *dubbo_service_class_entry;
+
+/*
+get service by name
+*/
+zval* get_service_by_name(zval *name, zval *storage){
 }
 
-zval* DubboClient::callService(char *serviceName, char *methodName, zval *params){
-	return 0;
+/*
+call service
+*/
+static PHP_METHOD(DubboService, __construct)
+{
+	
+
+	
 }
+
+
+const zend_function_entry dubbo_service_functions[] = {
+	PHP_ME(DubboClient, __construct,		arginfo_dubbo_service_construct,		ZEND_ACC_PUBLIC)
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
 
 
 

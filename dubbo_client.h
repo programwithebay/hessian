@@ -22,16 +22,43 @@
 
 /* Stuff private to the PDO extension and not for consumption by PDO drivers
  * */
+
 #ifndef _DUBBO_CLIENT_H_
 #define _DUBBO_CLIENT_H_
+
+extern "C" {
+	#include "php.h"
+	#include "php_ini.h"
+	#include "Zend/zend_types.h"
+	#include "Zend/zend_hash.h"
+}
 
 
 class DubboClient{
 	protected:
-		long connectTimeout;
+		char *version = "1.0.0";
+		long connectTimeout = 2;
+		long executeTimeout = 5;
+		char retries = 2;
+		char *dubbo = "2.5.3.1-SNAPSHOT";
+		char *loadbalance = "random";
+		char *methods;
+		char *interface;
+		char *owner = "php";
+		char *protocol = "http";
+		char *side = "consumer";
+		char *timestamp;
+		HashTable *serviceConfig;
+		zend_fcall_info fci;
+		zend_fcall_info_cache fci_cache;
 		
 	public:
-		void setConnectTimeout(long timeout);
+		DubboClient();
+		void setConnectTimeout(long timeout){connectTimeout = timeout;}
+		void setFci(zend_fcall_info arg_fci, zend_fcall_info_cache arg_fci_cache){fci = arg_fci; fci_cache = arg_fci_cache;}
+		zend_fcall_info getFci(){return fci;}
+		zend_fcall_info getFciCache(){return fci_cache;}
+		zval* callService(char *serviceName, char *methodName, zval *params);
 };
 
 #endif
