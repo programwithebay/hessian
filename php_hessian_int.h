@@ -36,6 +36,9 @@ struct dubbo_client_object {
 };
 
 
+zval* get_service_by_name(zval *name, zval *storage){};
+
+
 void dubbo_client_free_storage(void *object TSRMLS_DC);
 
 zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC);

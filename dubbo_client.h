@@ -57,7 +57,7 @@ class DubboClient{
 		void setConnectTimeout(long timeout){connectTimeout = timeout;}
 		void setFci(zend_fcall_info arg_fci, zend_fcall_info_cache arg_fci_cache){fci = arg_fci; fci_cache = arg_fci_cache;}
 		zend_fcall_info getFci(){return fci;}
-		zend_fcall_info getFciCache(){return fci_cache;}
+		zend_fcall_info_cache getFciCache(){return fci_cache;}
 		zval* callService(char *serviceName, char *methodName, zval *params);
 };
 
