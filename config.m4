@@ -9,8 +9,8 @@ dnl Make sure that the comment is aligned:
 dnl [  --enable-hessian           Enable hessian support])
 
 if test "$PHP_HESSIAN" != "no"; then
-  PHP_REQUIRE_CXX()
+  dnl PHP_REQUIRE_CXX()
   PHP_SUBST(HESSIAN_SHARED_LIBADD)
-  PHP_ADD_LIBRARY(stdc++, 1, HESSIAN_SHARED_LIBADD)
-  PHP_NEW_EXTENSION(hessian, hessian.cpp dubbo_client.cpp  php_dubbo_client.cpp dubbo_storage.c dubbo_service.c, $ext_shared)
+  dnl PHP_ADD_LIBRARY(stdc++, 1, HESSIAN_SHARED_LIBADD)
+  PHP_NEW_EXTENSION(hessian, hessian.c  php_dubbo_client.c dubbo_storage.c dubbo_service.c, $ext_shared)
 fi

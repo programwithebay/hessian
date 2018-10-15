@@ -50,7 +50,7 @@ static PHP_METHOD(DubboService, __construct)
 
 
 const zend_function_entry dubbo_service_functions[] = {
-	PHP_ME(DubboClient, __construct,		arginfo_dubbo_service_construct,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboService, __construct,		arginfo_dubbo_service_construct,		ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

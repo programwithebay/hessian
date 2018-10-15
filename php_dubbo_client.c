@@ -17,44 +17,51 @@
 */
 
 /* $Id$ */
-extern "C" {
-	#include "php.h"
-	#include "php_ini.h"
-	#include "php_hessian_int.h"
-	#include "Zend/zend_exceptions.h"
-	#include "ext/standard/info.h"
-	#include <fcntl.h>
-	#include <sys/types.h>
-	#include <sys/stat.h>
-}
+#include "php.h"
+#include "php_ini.h"
+#include "php_hessian_int.h"
+#include "Zend/zend_exceptions.h"
+#include "ext/standard/info.h"
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 
 zend_object_handlers dubbo_client_object_handlers;
-typedef struct _dubbo_client_object dubbo_client_object;
 
-struct _dubbo_client_object{
-	char *version = "1.0.0";
-	long connectTimeout = 2;
-	long executeTimeout = 5;
-	char retries = 2;
-	char *dubbo = "2.5.3.1-SNAPSHOT";
-	char *loadbalance = "random";
+struct _dubbo_client_entity{
+	char *version;
+	long connectTimeout;
+	long executeTimeout;
+	char retries;
+	char *dubbo;
+	char *loadbalance;
 	char *methods;
 	char *interface;
-	char *owner = "php";
-	char *protocol = "http";
-	char *side = "consumer";
+	char *owner;
+	char *protocol;
+	char *side;
 	char *timestamp;
 	HashTable *serviceConfig;
 	zend_fcall_info fci;
 	zend_fcall_info_cache fci_cache;
 };
 
+typedef struct _dubbo_client_entity dubbo_client_entity;
+
+typedef struct _dubbo_client_object dubbo_client_object;
+struct _dubbo_client_object {
+    zend_object std;
+	dubbo_client_entity entity;
+};
+
+
+
 
 void dubbo_client_free_storage(void *object TSRMLS_DC)
 {
     dubbo_client_object *obj = (dubbo_client_object *)object;
-    delete obj->client; 
+    //delete obj->client; 
 
     zend_hash_destroy(obj->std.properties);
     FREE_HASHTABLE(obj->std.properties);
@@ -68,7 +75,7 @@ zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC)
     zend_object_value retval;
 
     dubbo_client_object *obj = (dubbo_client_object *)emalloc(sizeof(dubbo_client_object));
-    memset(obj, 0, sizeof(DubboClient));
+    memset(obj, 0, sizeof(dubbo_client_entity));
     obj->std.ce = type;
 
     ALLOC_HASHTABLE(obj->std.properties);
@@ -152,7 +159,7 @@ static PHP_METHOD(DubboClient, __construct)
 	int fd;
 	int nread;
 	char buf[8192];	//max length is 8k
-	DubboClient *client;
+	dubbo_client_entity *client_entity;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &array)) {
 		php_error_docref(NULL, E_ERROR, "config must be an array");
@@ -217,10 +224,6 @@ static PHP_METHOD(DubboClient, __construct)
 	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("dtoMapConfig"),  dto_map);
 	*/
 	
-	//init c++ class
-	client = new DubboClient();
-    dubbo_client_object *obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
-    obj->client= client;
 	
 }
 
@@ -232,15 +235,13 @@ static PHP_METHOD(DubboClient, setConnectTimeout)
 {
 	zval* self=getThis();
 	long timeout;
-	DubboClient *client;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &timeout)) {
 		return;
 	}
 
 	dubbo_client_object *obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
-    client = obj->client;
-	client->setConnectTimeout(timeout);
+    obj->entity.connectTimeout = timeout;
 
 	return;
 }
@@ -254,7 +255,6 @@ static PHP_METHOD(DubboClient, setLogCallback)
 	zval *retval_ptr = NULL;
 	zend_fcall_info fci;
 	zend_fcall_info_cache fci_cache;
-	DubboClient *client;
 	zval *self;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "f", &fci, &fci_cache) == FAILURE) {
@@ -262,8 +262,8 @@ static PHP_METHOD(DubboClient, setLogCallback)
 	}
 	self = getThis();
 	dubbo_client_object *obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
-    client = obj->client;
-	client->setFci(fci, fci_cache);
+	obj->entity.fci =  fci;
+	obj->entity.fci_cache = fci_cache;
 }
 
 
@@ -294,21 +294,19 @@ static PHP_METHOD(DubboClient, callService)
 	zend_bool is_callable;
 	zend_fcall_info fci;
 	zend_fcall_info_cache fci_cache;
-	DubboClient *client;
 	zval log_param;
 	char *err_msg;
 	zval *error_message;
 	zval *log_param_ptr;
 	zval retval;
 	zval *retval_ptr;
-
+	dubbo_client_object *obj;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zzz", &arg_service_name, &arg_method, &arg_params)) {
 		php_error_docref(NULL, E_WARNING, "parse DubboClient::callService param error");
 	}
 	self = getThis();
-	dubbo_client_object *obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
-    client = obj->client;
+	obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
 	
 	storage = zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("storage"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(storage) != IS_OBJECT){
@@ -389,8 +387,8 @@ static PHP_METHOD(DubboClient, callService)
 	is_callable = zend_is_callable_ex(log_call_back, NULL, 0, NULL, NULL, NULL, &error TSRMLS_CC);
 
 	//for log callback
-	fci = client->getFci();
-	fci_cache = client->getFciCache();
+	fci = obj->entity.fci;
+	fci_cache = obj->entity.fci_cache;
 	
 	for(i=0; i<retries; i++){
 		call_user_function(NULL, &cls_service, &function_name, return_value, 2, params TSRMLS_CC);

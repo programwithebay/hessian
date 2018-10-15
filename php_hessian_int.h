@@ -25,18 +25,17 @@
 #ifndef _PHP_HESSIAN_INIT_H_
 #define _PHP_HESSIAN_INIT_H_ 1
 
-#include "dubbo_client.h"
 
 extern zend_object_handlers dubbo_client_object_handlers;
 
 
 struct dubbo_client_object {
     zend_object std;
-    DubboClient *client;
+    //DubboClient *client;
 };
 
 
-zval* get_service_by_name(zval *name, zval *storage){};
+zval* get_service_by_name(zval *name, zval *storage);
 
 
 void dubbo_client_free_storage(void *object TSRMLS_DC);
