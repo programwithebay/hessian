@@ -275,7 +275,8 @@ static PHP_METHOD(DubboClient, callService)
 {
 	//call function
 	zval *arg_service_name, *arg_method, *arg_params;
-	zval *cls_service;
+	zval cls_service;
+	zval *cls_service_ptr;
 	zval *service_config;
 	zval *self;
 	zval *storage;
@@ -317,8 +318,9 @@ static PHP_METHOD(DubboClient, callService)
 	if (!instanceof_function_ex(zend_get_class_entry(storage), idubbo_storage_interface_entry, 0 TSRMLS_CC)){
 		php_error_docref(NULL, E_WARNING, "DubboClient::storage does not implements IDubboStorage");
 	}
-	
-	cls_service = get_service_by_name(arg_service_name, storage);
+
+	cls_service_ptr = &cls_service;
+	get_service_by_name(arg_service_name, storage, cls_service_ptr);
 	//test is is serviceConfig
 	service_config = zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("serviceConfig"), 1 TSRMLS_DC);
 	if(Z_TYPE_P(service_config) != IS_ARRAY){
@@ -348,7 +350,7 @@ static PHP_METHOD(DubboClient, callService)
 		INIT_ZVAL(function_name);
 		ZVAL_STRING(&function_name, "setDtoMap", 1);
 		params[0] = dtomap;
-		if (call_user_function(NULL, &cls_service, &function_name, &retval, 1, params TSRMLS_CC) == FAILURE) {
+		if (call_user_function(NULL, &cls_service_ptr, &function_name, &retval, 1, params TSRMLS_CC) == FAILURE) {
 			zval_dtor(&function_name);
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Error calling constructor");
 		}
@@ -356,19 +358,19 @@ static PHP_METHOD(DubboClient, callService)
 	}
 	
 	//option
-	set_option_2param(cls_service,self, "version", 0);
-	set_option_2param(cls_service, self, "group", 0);
-	set_option_2param(cls_service, self, "connectTimeout", 0);
-	set_option_2param(cls_service, self, "executeTimeout", 0);
-	set_option_2param(cls_service, self,  "dubbo", 0);
-	set_option_2param(cls_service, self,  "loadbalance", 0);
-	set_option_2param(cls_service, self, "owner", 0);
-	set_option_2param(cls_service, self, "protocol", 0);
-	set_option_2param(cls_service, self, "side", 0);
+	set_option_2param(cls_service_ptr,self, "version", 0);
+	set_option_2param(cls_service_ptr, self, "group", 0);
+	set_option_2param(cls_service_ptr, self, "connectTimeout", 0);
+	set_option_2param(cls_service_ptr, self, "executeTimeout", 0);
+	set_option_2param(cls_service_ptr, self,  "dubbo", 0);
+	set_option_2param(cls_service_ptr, self,  "loadbalance", 0);
+	set_option_2param(cls_service_ptr, self, "owner", 0);
+	set_option_2param(cls_service_ptr, self, "protocol", 0);
+	set_option_2param(cls_service_ptr, self, "side", 0);
 	//set pid
 	pid = getpid();
 	ZVAL_LONG(property, pid);
-	set_option_2param(cls_service, self, "pid", property);
+	set_option_2param(cls_service_ptr, self, "pid", property);
 
 	//default return is false
 	RETVAL_FALSE;
@@ -391,7 +393,7 @@ static PHP_METHOD(DubboClient, callService)
 	fci_cache = obj->entity.fci_cache;
 	
 	for(i=0; i<retries; i++){
-		call_user_function(NULL, &cls_service, &function_name, return_value, 2, params TSRMLS_CC);
+		call_user_function(NULL, &cls_service_ptr, &function_name, return_value, 2, params TSRMLS_CC);
 		if (i_zend_is_true(return_value)){
 			break;
 		}
@@ -421,7 +423,7 @@ static PHP_METHOD(DubboClient, callService)
 		}
 
 		//failed
-		call_user_function(NULL, &cls_service, &function_name, return_value, 0, params TSRMLS_CC);
+		call_user_function(NULL, &cls_service_ptr, &function_name, return_value, 0, params TSRMLS_CC);
 	}
 	if (error){
 		efree(error);

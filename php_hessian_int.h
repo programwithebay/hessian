@@ -35,7 +35,7 @@ struct dubbo_client_object {
 };
 
 
-zval* get_service_by_name(zval *name, zval *storage);
+void get_service_by_name(zval *name, zval *storage, zval* ret);
 
 
 void dubbo_client_free_storage(void *object TSRMLS_DC);
