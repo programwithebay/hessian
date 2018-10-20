@@ -19,6 +19,7 @@
 /* $Id$ */
 #include "php.h"
 #include "php_ini.h"
+#include "php_hessian_int.h"
 #include "ext/standard/info.h"
 
 
@@ -70,15 +71,14 @@ void get_service_by_name(zval *name, zval *storage, zval* retval){
 	zval function_name;
 	zval *params[1];
 	zval *property;
-	zval retval;
 	
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "get", 1);
-	params[0] = &name;
+	params[0] = name;
 	//dont check is error
 	call_user_function(NULL, &storage, &function_name, retval, 1, params TSRMLS_CC);
 
-	zval_dtor(function_name);
+	zval_dtor(&function_name);
 }
 
 /*
@@ -183,7 +183,7 @@ DubboService construct
 static PHP_METHOD(DubboService, save)
 {
 	zval *value;
-	zval *providers, *consumers, *storage;
+	zval *providers, *consumers, *storage, *name;
 	zval *self;
 	zval *params[2];
 	zval function_name;
@@ -192,18 +192,21 @@ static PHP_METHOD(DubboService, save)
 	providers = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("providers"), 1 TSRMLS_DC);
 	consumers = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("consumers"), 1 TSRMLS_DC);
 	storage = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("storage"), 1 TSRMLS_DC);
-	ALLOC_ZVAL(options);
-	array_init_size(options, 2);
+	ALLOC_ZVAL(value);
+	array_init_size(value, 2);
 
 	//todo strlen or strlen+1
 	zend_hash_update(Z_ARRVAL_P(value), "providers", strlen("providers"), providers, sizeof(zval *), NULL);
     zend_hash_update(Z_ARRVAL_P(value), "consumers", strlen("consumers"), consumers, sizeof(zval *), NULL);
 
 	//set storage
+	name = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("name"), 1 TSRMLS_DC);
+	params[0] = name;
+	params[1] = value;
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "set", 1);
 	call_user_function(NULL, &storage, &function_name, NULL, 2, params TSRMLS_CC);
-	zval_dtor(function_name);
+	zval_dtor(&function_name);
 }
 
 /*
@@ -222,7 +225,7 @@ static PHP_METHOD(DubboService, failed)
 {
 	zval *index, *providers;
 	zval *self;
-	HashTable *ht;
+	HashTable *ht_providers;
 	ulong hval;
 	ulong h;
 
@@ -233,11 +236,11 @@ static PHP_METHOD(DubboService, failed)
 	}
 	index = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("curProviderIndex"), 1 TSRMLS_DC);
 	//unset($this->providers[$index]);
-	ht = Z_ARRVAL_P(providers);
+	ht_providers = Z_ARRVAL_P(providers);
 	convert_to_string(index);
 	h = zend_inline_hash_func(Z_STRVAL_P(index), Z_STRLEN_P(index));
-	nIndex = h & ht->nTableMask;
-	zend_hash_index_del(ht, hval);
+	hval = h & ht_providers->nTableMask;
+	zend_hash_index_del(ht_providers, hval);
 }
 
 
