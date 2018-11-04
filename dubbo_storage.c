@@ -26,7 +26,6 @@
 #include "ext/standard/php_smart_str_public.h"
 #include "ext/json/php_json.h"
 #include "ext/standard/info.h"
-#include "ext/standard/php_filestat.h"
 #include "hessian_common.h"
 
 
@@ -100,16 +99,28 @@ static PHP_METHOD(DubboStorageFactory, create)
 {
 	zval *array;
 	char *type;
+	int type_len;
 	
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sa", &type, array)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &type, &type_len, &array)) {
 		return;
 	}
+	if(Z_TYPE_P(array) != IS_ARRAY){
+		php_error_docref(NULL, E_ERROR, "param is not an array");
+	}
+	if (0 == strncasecmp(type, "file", 4)){
 
-	if (strncasecmp(type, "file", siezof("file")-1)){
+		/*
+		memset(obj, 0, sizeof(dubbo_client_entity));
+    		obj->std.ce = type;
+		zend_object_std_init(&obj->std, type TSRMLS_CC);
+		object_properties_init(&obj->std, type);
+		*/
+		
 		Z_TYPE_P(return_value) = IS_OBJECT;
 		object_init_ex(return_value, dubbo_file_storage_class_entry);
 		Z_SET_REFCOUNT_P(return_value, 1);
 		Z_SET_ISREF_P(return_value);
+		//call _construct function
 	
 	}else{
 		//TODO:Å×³öÒì³£
@@ -244,11 +255,10 @@ static PHP_METHOD(DubboStorageAbstract, decode)
 {
 	char *str;
 	int str_len;
-	zend_bool assoc = 0; /* return JS objects as PHP objects by default */
 	long depth = 512;
 	long options = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bll", &str) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
 		return;
 	}
 

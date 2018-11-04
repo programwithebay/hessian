@@ -21,6 +21,8 @@
 #include "php_ini.h"
 #include "php_hessian_int.h"
 #include "Zend/zend_exceptions.h"
+#include "ext/standard/php_smart_str_public.h"
+#include "ext/json/php_json.h"
 #include "ext/standard/info.h"
 #include <fcntl.h>
 #include <sys/types.h>
@@ -63,8 +65,7 @@ void dubbo_client_free_storage(void *object TSRMLS_DC)
     dubbo_client_object *obj = (dubbo_client_object *)object;
     //delete obj->client; 
 
-    zend_hash_destroy(obj->std.properties);
-    FREE_HASHTABLE(obj->std.properties);
+   	zend_object_std_dtor(&obj->std TSRMLS_CC);
 
     efree(obj);
 }
@@ -78,13 +79,10 @@ zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC)
     memset(obj, 0, sizeof(dubbo_client_entity));
     obj->std.ce = type;
 
-    ALLOC_HASHTABLE(obj->std.properties);
-    zend_hash_init(obj->std.properties, 0, NULL, ZVAL_PTR_DTOR, 0);
-    zend_hash_copy(obj->std.properties, Z_ARRVAL_P(*(type->default_properties_table)),
-        (copy_ctor_func_t)zval_add_ref, (void *)&tmp, sizeof(zval *));
+	zend_object_std_init(&obj->std, type TSRMLS_CC);
+	object_properties_init(&obj->std, type);
 
-    retval.handle = zend_objects_store_put(obj, NULL,
-        dubbo_client_free_storage, NULL TSRMLS_CC);
+    retval.handle = zend_objects_store_put(obj, NULL, dubbo_client_free_storage, NULL TSRMLS_CC);
     retval.handlers = &dubbo_client_object_handlers;
 
     return retval;
@@ -96,14 +94,18 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, config) /* array */
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_setConnectTimeout, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_set_connect_timeout, 0, 0, 1)
 	ZEND_ARG_INFO(0, timeout) /* long */
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_callService, 0, 0, 3)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_call_service, 0, 0, 3)
 	ZEND_ARG_INFO(0, serviceName) /* string serviceName */
 	ZEND_ARG_INFO(0, method) /* string method */
 	ZEND_ARG_INFO(0, params) /* array params */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_set_log_callback, 0, 0, 3)
+	ZEND_ARG_INFO(0, callback) /* string serviceName */
 ZEND_END_ARG_INFO()
 
 
@@ -147,19 +149,22 @@ static PHP_METHOD(DubboClient, __construct)
 	//read storage 
 	zval *array;
 	zval* self;
-	zval *storage, *config_file, *config_array, *servic_config, *dto_map, *redis_config;
+	zval config_array;
+	zval *storage, *config_file, *servic_config, *dto_map, *redis_config;
+	zval *storage_obj;
 	zval *new_config;
 	zval** value_ptr;
 	zval *type, *param;
-	zval *function_name;
+	zval function_name;
 	zval retval;
 	zval *params[2];
 	long depth = 512;
 	long options = 0;
 	int fd;
 	int nread;
-	char buf[8192];	//max length is 8k
+	char buf[16384];	//max length is 16k
 	dubbo_client_entity *client_entity;
+	int error_code;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &array)) {
 		php_error_docref(NULL, E_ERROR, "config must be an array");
@@ -182,47 +187,56 @@ static PHP_METHOD(DubboClient, __construct)
 		php_error_docref(NULL, E_ERROR, "['storage']['param'] is not set");
 	}
 	param = *value_ptr;
-
-
-		
+	self = getThis();
+	
+	//create storage
+	//$this->storage = \DubboStorageFactory::create($type, $param);
+	ALLOC_ZVAL(storage_obj);
+	INIT_ZVAL(function_name);
+	ZVAL_STRING(&function_name, "DubboStorageFactory::create", 1);
+	params[0] = type;
+	params[1]= param;
+	//error_code = call_user_function(&(dubbo_service_class_entry->function_table), NULL, &function_name, storage_obj, 2, params TSRMLS_DC);
+	error_code = call_user_function(EG(function_table), NULL, &function_name, storage_obj, 2, params TSRMLS_DC);
+	if (SUCCESS !=  error_code){
+		php_error_docref(NULL, E_ERROR, "call function DubboService::create error");
+	}
+	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("storage"),  storage_obj);
 	
 	//init
-	//options |=  PHP_JSON_OBJECT_AS_ARRAY;
-	//read file
+	options |=  PHP_JSON_OBJECT_AS_ARRAY;
 	fd = open(Z_STRVAL_P(config_file), O_RDONLY);
 	if (-1 == fd){
 		php_error_docref(NULL, E_ERROR, "open file %s error", Z_STRVAL_P(config_file));
 	}
-	nread = read(fd, buf, 8191);
+	nread = read(fd, buf, 16383);
 	if (-1 == nread){
 		close(fd);
 		php_error_docref(NULL, E_ERROR, "read file %s error", Z_STRVAL_P(config_file));
 	}
 	close(fd);
 
-	/*
-	php_json_decode_ex(config_array, buf, nread, options, depth TSRMLS_CC);
-	if (JSON_G(error_code) > 0){
+
+	php_json_decode_ex(&config_array, buf, nread, options, depth TSRMLS_CC);
+	if (Z_TYPE(config_array) != IS_ARRAY){
 		php_error_docref(NULL, E_ERROR, "file %s is not a json file", Z_STRVAL_P(config_file));
 	}
-	if (FAILURE == zend_hash_find(HASH_OF(config_array), ZEND_STRS("zk"), (void **)&value_ptr)){
+	if (FAILURE == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("zk"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "configFile zk is not set");
 	}
-	servic_config = * value_ptr;
+	servic_config = *value_ptr;
 	//isset redis?
-	if (SUCCESS == zend_hash_find(HASH_OF(config_array), ZEND_STRS("redis"), (void **)&value_ptr)){
+	if (SUCCESS == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("redis"), (void **)&value_ptr)){
 		redis_config = *value_ptr;
 		php_array_merge(Z_ARRVAL_P(servic_config), Z_ARRVAL_P(redis_config), 0 TSRMLS_CC);
 		//zend_hash_merge(Z_ARRVAL_P(redis_config), Z_ARRVAL_P(redis_config), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
-	}else{
-		zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("serviceConfig"),  servic_config);
 	}
-	if (FAILURE == zend_hash_find(HASH_OF(config_array), ZEND_STRS("dtoMap"), (void **)&value_ptr)){
+	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("serviceConfig"),  servic_config);
+	if (FAILURE == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("dtoMap"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "configFile dtoMap is not set");
 	}
 	dto_map = *value_ptr;
 	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("dtoMapConfig"),  dto_map);
-	*/
 	
 	
 }
@@ -312,7 +326,6 @@ static PHP_METHOD(DubboClient, callService)
 	storage = zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("storage"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(storage) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "DubboClient::storage is not a object");
-		
 	}
 	//是否父子类关系
 	if (!instanceof_function_ex(zend_get_class_entry(storage), idubbo_storage_interface_entry, 0 TSRMLS_CC)){
@@ -327,7 +340,7 @@ static PHP_METHOD(DubboClient, callService)
 		php_error_docref(NULL, E_WARNING, "DubboClient::serviceConfig is not an array");
 	}
 	if (SUCCESS != zend_hash_find(HASH_OF(service_config), Z_STRVAL_P(arg_service_name),Z_STRLEN_P(arg_service_name), (void **)&value_ptr)){
-		php_error_docref(NULL, E_ERROR, "serviceConfig:%s is not set", Z_STRLEN_P(arg_service_name));
+		php_error_docref(NULL, E_ERROR, "serviceConfig:%s is not set", Z_STRVAL_P(arg_service_name));
 		return;
 	}
 	service_config = *value_ptr;
@@ -436,8 +449,9 @@ static PHP_METHOD(DubboClient, callService)
 
 const zend_function_entry hessian_functions[] = {
 	PHP_ME(DubboClient, __construct,		arginfo_hessian_construct,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, setConnectTimeout,		arginfo_hessian_setConnectTimeout,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, callService,		arginfo_hessian_callService,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setConnectTimeout,		arginfo_hessian_set_connect_timeout,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, callService,		arginfo_hessian_call_service,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setLogCallback,		arginfo_hessian_set_log_callback,		ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 
