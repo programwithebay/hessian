@@ -71,15 +71,10 @@ static void php_hessian_init_globals(zend_hessian_globals *hessian_globals)
 
 
 
-
-/* {{{ PHP_MINIT_FUNCTION
- */
-PHP_MINIT_FUNCTION(hessian)
-{
-	/* If you have INI entries, uncomment these lines 
-	REGISTER_INI_ENTRIES();
-	*/
-
+/*
+	register base function 
+*/
+void register_hessian_base_class(){
 	zend_class_entry ce_dubbo_client, ce_idubbo_storage, ce_dubbo_storage_abstract, ce_dubbo_file_storage;
 	zend_class_entry ce_dubbo_storage_factory;
 	zend_class_entry ce_dubbo_service;
@@ -155,6 +150,40 @@ PHP_MINIT_FUNCTION(hessian)
 	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("timestamp"), ZEND_ACC_PROTECTED TSRMLS_CC);
 	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("serviceConfig"), ZEND_ACC_PROTECTED TSRMLS_CC);
 	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("dtoMapConfig"), ZEND_ACC_PROTECTED TSRMLS_CC);
+}
+
+
+/*
+	register hessian ext class
+*/
+void register_hessian_ext_class(){
+	zend_class_entry ce_hessian_buffered_stream;
+
+	//HessianBufferedStream
+	INIT_CLASS_ENTRY(ce_hessian_buffered_stream, "HessianBufferedStream", hessian_buffered_stream_functions);
+	hessian_buffered_stream_entry = zend_register_internal_class(&ce_hessian_buffered_stream TSRMLS_CC);
+	zend_declare_property_null(hessian_buffered_stream_entry, ZEND_STRL("fp"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("pos"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("len"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferSize"), 1024, ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	//for buf
+	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferPos"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferAllocSize"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(hessian_buffered_stream_entry, ZEND_STRL("bytes"), ZEND_ACC_PUBLIC TSRMLS_CC);
+}
+
+/* {{{ PHP_MINIT_FUNCTION
+ */
+PHP_MINIT_FUNCTION(hessian)
+{
+	/* If you have INI entries, uncomment these lines 
+	REGISTER_INI_ENTRIES();
+	*/
+
+	register_hessian_base_class();
+
+	register_hessian_ext_class();
 	
 	return SUCCESS;
 }

@@ -52,6 +52,7 @@ extern zend_class_entry *dubbo_file_storage_class_entry;
 extern zend_class_entry *dubbo_storage_abstract_class_entry;
 extern zend_class_entry *idubbo_storage_interface_entry;
 extern zend_class_entry *dubbo_service_class_entry;
+zend_class_entry *hessian_buffered_stream_entry;
 
 
 //class function
