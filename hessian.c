@@ -113,7 +113,7 @@ void register_hessian_base_class(){
 
 	//register DubboService Class
 	INIT_CLASS_ENTRY(ce_dubbo_service, "DubboService", dubbo_service_functions);
-	dubbo_service_class_entry = zend_register_internal_class(&ce_dubbo_file_storage TSRMLS_CC);
+	dubbo_service_class_entry = zend_register_internal_class(&ce_dubbo_service TSRMLS_CC);
 	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("name"),  ZEND_ACC_PROTECTED TSRMLS_CC);
 	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("providers"),  ZEND_ACC_PROTECTED TSRMLS_CC);
 	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("curProviderIndex"),  ZEND_ACC_PROTECTED TSRMLS_CC);
@@ -170,7 +170,7 @@ void register_hessian_ext_class(){
 	//for buf
 	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferPos"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferAllocSize"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
-	zend_declare_property_null(hessian_buffered_stream_entry, ZEND_STRL("bytes"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_string(hessian_buffered_stream_entry, ZEND_STRL("bytes"), "", ZEND_ACC_PUBLIC TSRMLS_CC);
 }
 
 /* {{{ PHP_MINIT_FUNCTION

@@ -37,11 +37,16 @@ struct dubbo_client_object {
 
 void get_service_by_name(zval *name, zval *storage, zval* ret);
 
-
+//dubbo client
 void dubbo_client_free_storage(void *object TSRMLS_DC);
 
 zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC);
 
+
+//HessianBufferedStream
+void hessian_buffered_stream_free_storage(void *object TSRMLS_DC);
+
+zend_object_value hessian_buffered_stream_create_handler(zend_class_entry *type TSRMLS_DC);
 
 
 
@@ -62,6 +67,8 @@ extern const zend_function_entry idubbo_storage_interface_functions[];
 extern const zend_function_entry dubbo_storage_abstract_functions[];
 extern const zend_function_entry dubbo_file_storage_functions[];
 extern const zend_function_entry dubbo_service_functions[];
+extern const zend_function_entry hessian_buffered_stream_functions[];
+
 
 #endif
 
