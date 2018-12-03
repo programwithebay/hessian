@@ -162,15 +162,13 @@ void register_hessian_ext_class(){
 	//HessianBufferedStream
 	INIT_CLASS_ENTRY(ce_hessian_buffered_stream, "HessianBufferedStream", hessian_buffered_stream_functions);
 	hessian_buffered_stream_entry = zend_register_internal_class(&ce_hessian_buffered_stream TSRMLS_CC);
+	hessian_buffered_stream_entry->create_object = hessian_buffered_stream_create_handler;
+    memcpy(&hessian_buffered_stream_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+    hessian_buffered_stream_object_handlers.clone_obj = NULL;
+	
 	zend_declare_property_null(hessian_buffered_stream_entry, ZEND_STRL("fp"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("pos"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("len"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferSize"), 1024, ZEND_ACC_PUBLIC TSRMLS_CC);
-
-	//for buf
-	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferPos"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
-	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("bufferAllocSize"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
-	zend_declare_property_string(hessian_buffered_stream_entry, ZEND_STRL("bytes"), "", ZEND_ACC_PUBLIC TSRMLS_CC);
 }
 
 /* {{{ PHP_MINIT_FUNCTION

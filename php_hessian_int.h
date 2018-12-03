@@ -27,6 +27,7 @@
 
 
 extern zend_object_handlers dubbo_client_object_handlers;
+extern zend_object_handlers hessian_buffered_stream_object_handlers;
 
 
 struct dubbo_client_object {

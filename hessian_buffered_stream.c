@@ -61,11 +61,15 @@ zend_object_value hessian_buffered_stream_create_handler(zend_class_entry *type 
 
     hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)emalloc(sizeof(hessian_buffered_stream_object));
     memset(obj, 0, sizeof(hessian_buffered_stream_object));
-    obj->std.ce = type;
+   
 
 	zend_object_std_init(&obj->std, type TSRMLS_CC);
 	object_properties_init(&obj->std, type);
 
+	obj->std.ce = type;
+	obj->entity.buffer_alloc_size =  0;
+	obj->entity.buffer_pos = 0;
+	obj->entity.buffer_size = 1024;
     retval.handle = zend_objects_store_put(obj, NULL, hessian_buffered_stream_free_storage, NULL TSRMLS_CC);
     retval.handlers = &hessian_buffered_stream_object_handlers;
 
@@ -132,11 +136,12 @@ void hessian_ensure_buffer_size(zval **self, long size){
 	char *bytes;
 	char *buf;
 	long buffer_pos, buffer_alloc_size, new_buffer_alloc_size;
-	
+	long multi;
+	hessian_buffered_stream_object *obj;
 	
 
 	this = *self;
-	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
+	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(this TSRMLS_CC);
 	//buffer
 	bytes = obj->entity.bytes;
 	//buffer pos
@@ -144,14 +149,16 @@ void hessian_ensure_buffer_size(zval **self, long size){
 	buffer_pos = obj->entity.buffer_pos;
 	buffer_alloc_size = obj->entity.buffer_alloc_size;
 	
-	if (size <= buffer_alloc_size){
+	if (size < buffer_alloc_size){
 		return;
 	}
-	
-	long multi;
-	multi =  size / buffer_size + 1;
+	multi =  size / buffer_size + 2;
 	new_buffer_alloc_size = multi * buffer_size;
-	bytes = perealloc(bytes, new_buffer_alloc_size, 0);
+	if (!bytes){
+		bytes = emalloc(new_buffer_alloc_size);
+	}else{
+		bytes = perealloc(bytes, new_buffer_alloc_size, 0);
+	}
 	if (!bytes){
 		php_error_docref(NULL, E_ERROR, "BufferInputStream alloc memory error");
 	}
@@ -162,7 +169,7 @@ void hessian_ensure_buffer_size(zval **self, long size){
 /*
 	check read
 */
-long inline hessian_buffered_stream_check_read(zval **self, long new_pos){
+void hessian_buffered_stream_check_read(zval **self, long new_pos){
 	zval *fp, *z_len, *this;
 	zval *property;
 	php_stream *stream;
@@ -170,8 +177,8 @@ long inline hessian_buffered_stream_check_read(zval **self, long new_pos){
 	long buffer_size, read_length;
 	char *bytes;
 	char *buf;
-	long buffer_pos, buffer_alloc_size, new_buffer_alloc_size;
-	
+	long buffer_pos, new_buffer_alloc_size;
+	hessian_buffered_stream_object *obj;
 
 	this = *self;
 	fp = zend_read_property(hessian_buffered_stream_entry, this, ZEND_STRL("fp"), 0 TSRMLS_DC);
@@ -184,22 +191,18 @@ long inline hessian_buffered_stream_check_read(zval **self, long new_pos){
 		return;
 	}
 
-	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
-	buffer_size = obj->entity.buffer_size;
-	buffer_alloc_size = obj->entity.buffer_alloc_size;
-	buffer_pos = obj->entity.buffer_pos;
-
+	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(this TSRMLS_CC);
 	hessian_ensure_buffer_size(self, new_pos);
 
 	bytes = obj->entity.bytes;
-
+	buffer_size = obj->entity.buffer_size;
+	buffer_pos = obj->entity.buffer_pos;
 	buf = bytes + buffer_pos;
 	read_length = php_stream_read(stream, buf, buffer_size);
 	len += read_length;
 
-	return len;
-	//Z_LVAL_P(z_len)= len;
-	//zend_update_property(hessian_buffered_stream_entry, this, ZEND_STRL("len"), z_len TSRMLS_DC);
+	Z_LVAL_P(z_len)= len;
+	zend_update_property(hessian_buffered_stream_entry, this, ZEND_STRL("len"), z_len TSRMLS_DC);
 }
 
 
@@ -210,6 +213,8 @@ static PHP_METHOD(HessianBufferedStream, __construct)
 {
 	zval *fp, *buffer_size;
 	zval *self;
+	hessian_buffered_stream_object *obj;
+	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &fp, &buffer_size)) {
 		return;
 	}
@@ -224,7 +229,11 @@ static PHP_METHOD(HessianBufferedStream, __construct)
 
 	self = getThis();
 	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), fp TSRMLS_DC);
-	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("bufferSize"), buffer_size TSRMLS_DC);
+	
+	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
+	obj->entity.buffer_size = Z_LVAL_P(buffer_size);
+	obj->entity.buffer_alloc_size = 0;
+	obj->entity.buffer_pos = 0;
 }
 
 /*
@@ -247,6 +256,7 @@ static PHP_METHOD(HessianBufferedStream, setStream)
 
 	self = getThis();
 	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), fp TSRMLS_DC);
+	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
 	len = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), 0 TSRMLS_DC);
 	Z_LVAL_P(len) = 0;
 	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), len TSRMLS_DC);
@@ -280,13 +290,10 @@ static PHP_METHOD(HessianBufferedStream, peek)
 	new_pos = Z_LVAL_P(pos) + Z_LVAL_P(count);
 
 	//check length
-	new_len = hessian_buffered_stream_check_read(&self, new_pos);
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), 0 TSRMLS_DC);
-	Z_LVAL_P(property)= new_len;
-	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), property TSRMLS_DC);
+	hessian_buffered_stream_check_read(&self, new_pos);
 	
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bytes"), 0 TSRMLS_DC);
-	bytes = Z_STRVAL_P(property);
+	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
+	bytes = obj->entity.bytes;
 	str = emalloc(Z_LVAL_P(count) + 1);
 	if (!str){
 		php_error_docref(NULL, E_ERROR, "BuffererInputStream::peek alloc memory error");
@@ -322,13 +329,10 @@ static PHP_METHOD(HessianBufferedStream, read)
 	new_pos = Z_LVAL_P(pos) + Z_LVAL_P(count); 
 
 	//check
-	new_len = hessian_buffered_stream_check_read(&self, new_pos);
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), 0 TSRMLS_DC);
-	Z_LVAL_P(property)= new_len;
-	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), property TSRMLS_DC);
-	
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bytes"), 0 TSRMLS_DC);
-	buf = (char*)property;
+	hessian_buffered_stream_check_read(&self, new_pos);
+
+	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
+	buf = obj->entity.bytes;
 	str = emalloc(Z_LVAL_P(count)+1);
 	if (!str){
 		php_error_docref(NULL, E_ERROR, "BuffererInputStream::read alloc memory error");
@@ -370,7 +374,7 @@ static PHP_METHOD(HessianBufferedStream, write)
 	char *bytes, *buf;
 	char *data;
 	int	data_len;
-	long buffer_alloc_size, buffer_pos, new_size;
+	long buffer_pos, new_size;
 	long len;
 	php_stream *stream;
 	
@@ -380,15 +384,11 @@ static PHP_METHOD(HessianBufferedStream, write)
 
 	
 	self = getThis();
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bytes"), 0 TSRMLS_DC);
+	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
 	fp = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), 0 TSRMLS_DC);
 	php_stream_from_zval_no_verify(stream, &fp);
-	bytes = (char*)property;
-
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bufferAllocSize"), 0 TSRMLS_DC);
-	buffer_alloc_size = (long)property;
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bufferPos"), 0 TSRMLS_DC);
-	buffer_pos = Z_LVAL_P(property);
+	bytes = obj->entity.bytes;
+	buffer_pos = obj->entity.buffer_pos;
 	new_size = buffer_pos + data_len;
 	hessian_ensure_buffer_size(&self, new_size);
 	/*
@@ -443,15 +443,13 @@ static PHP_METHOD(HessianBufferedStream, readAll)
 	} 
 	*/
 
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bytes"), 0 TSRMLS_DC);
-	if(property){
-		bytes = (char*)property;
-		if (bytes){
-			efree(bytes);
-		}
+	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
+	bytes = obj->entity.bytes;
+	if (bytes){
+		efree(bytes);
 	}
 
-	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("bytes"), (zval*)contents TSRMLS_DC);
+	obj->entity.bytes = contents;
 	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), 0 TSRMLS_DC);
 	Z_LVAL_P(property) = len;
 	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("len"), property TSRMLS_DC);
@@ -484,8 +482,9 @@ static PHP_METHOD(HessianBufferedStream, getData)
 	char *bytes;
 	
 	self = getThis();
-	property = zend_read_property(hessian_buffered_stream_entry, self, ZEND_STRL("bytes"), 0 TSRMLS_DC);
-	bytes = (char*)property;
+	
+	hessian_buffered_stream_object *obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);	
+	bytes = obj->entity.bytes;
 	RETURN_STRING(bytes, 1);
 }
 
