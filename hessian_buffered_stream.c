@@ -319,36 +319,39 @@ static PHP_METHOD(HessianBufferedStream, peek)
 */
 static PHP_METHOD(HessianBufferedStream, read)
 {
-	zval *count;
+	zval *z_count;
 	zval *self;
-	long new_pos, new_len;
+	long new_pos, new_len, count;
 	zend_bool check_res;
 	char *str, *buf;
 	zval *property;
 	char *bytes;
 	hessian_buffered_stream_object *obj;
 		
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &count)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|z", &z_count)) {
 		return;
 	}
-	if (Z_TYPE_P(count) != IS_LONG){
+	if (!z_count){
+		count = 1;
+	}
+	if (Z_TYPE_P(z_count) != IS_LONG){
 		return;
 	}
-	if (Z_LVAL_P(count) < 1){
+	if (Z_LVAL_P(z_count) < 1){
 		return;
 	}
-	
+	count = Z_LVAL_P(z_count);
 	self = getThis();
 	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
-	new_pos = obj->entity.buffer_pos + Z_LVAL_P(count); 
-	str = emalloc(Z_LVAL_P(count)+1);
+	new_pos = obj->entity.buffer_pos + count; 
+	str = emalloc(count+1);
 	if (!str){
 		php_error_docref(NULL, E_ERROR, "BuffererInputStream::read alloc memory error");
 	}
 	//read
 	buf = hessian_buffered_stream_read(&self, new_pos);
-	memcpy(str, buf, Z_LVAL_P(count));
-	str[Z_LVAL_P(count)] = 0;
+	memcpy(str, buf, count);
+	str[count] = 0;
 	obj->entity.buffer_pos = new_pos;
 	RETURN_STRING(str, 0);
 }
