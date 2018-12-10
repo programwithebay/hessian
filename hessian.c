@@ -157,7 +157,7 @@ void register_hessian_base_class(){
 	register hessian ext class
 */
 void register_hessian_ext_class(){
-	zend_class_entry ce_hessian_buffered_stream;
+	zend_class_entry ce_hessian_buffered_stream, ce_hessian_callback_handler_stream;
 
 	//HessianBufferedStream
 	INIT_CLASS_ENTRY(ce_hessian_buffered_stream, "HessianBufferedStream", hessian_buffered_stream_functions);
@@ -167,8 +167,13 @@ void register_hessian_ext_class(){
     hessian_buffered_stream_object_handlers.clone_obj = NULL;
 	
 	zend_declare_property_null(hessian_buffered_stream_entry, ZEND_STRL("fp"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("pos"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(hessian_buffered_stream_entry, ZEND_STRL("len"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	//HessianCallbackHandler
+	INIT_CLASS_ENTRY(ce_hessian_callback_handler_stream, "HessianCallbackHandler", hessian_callback_handler_functions);
+	hessian_callback_handler_entry = zend_register_internal_class(&ce_hessian_callback_handler_stream TSRMLS_CC);
+	zend_declare_property_null(hessian_callback_handler_entry, ZEND_STRL("callbacks"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_callback_handler_entry, ZEND_STRL("notFound"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_callback_handler_entry, ZEND_STRL("cache"), ZEND_ACC_PUBLIC TSRMLS_CC);
 }
 
 /* {{{ PHP_MINIT_FUNCTION
