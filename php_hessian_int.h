@@ -60,6 +60,10 @@ extern zend_class_entry *idubbo_storage_interface_entry;
 extern zend_class_entry *dubbo_service_class_entry;
 extern zend_class_entry *hessian_buffered_stream_entry;
 extern zend_class_entry *hessian_callback_handler_entry;
+extern zend_class_entry *hessian_client_entry;
+extern zend_class_entry *ihessian_object_factory_entry;
+extern zend_class_entry *hessian_object_factory_entry;
+
 
 
 //class function
@@ -71,6 +75,9 @@ extern const zend_function_entry dubbo_file_storage_functions[];
 extern const zend_function_entry dubbo_service_functions[];
 extern const zend_function_entry hessian_buffered_stream_functions[];
 extern const zend_function_entry hessian_callback_handler_functions[];
+extern const zend_function_entry hessian_client_functions[];
+extern const zend_function_entry ihessian_object_factory_functions[];
+extern const zend_function_entry hessian_object_factory_functions[];
 
 
 #endif

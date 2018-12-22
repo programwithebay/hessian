@@ -157,7 +157,9 @@ void register_hessian_base_class(){
 	register hessian ext class
 */
 void register_hessian_ext_class(){
-	zend_class_entry ce_hessian_buffered_stream, ce_hessian_callback_handler_stream;
+	zend_class_entry ce_hessian_buffered_stream, ce_hessian_callback_handler_stream, ce_hessian_client;
+	zend_class_entry ce_ihessian_object_factory, ce_hessian_object_factory;
+	
 
 	//HessianBufferedStream
 	INIT_CLASS_ENTRY(ce_hessian_buffered_stream, "HessianBufferedStream", hessian_buffered_stream_functions);
@@ -174,6 +176,26 @@ void register_hessian_ext_class(){
 	zend_declare_property_null(hessian_callback_handler_entry, ZEND_STRL("callbacks"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_callback_handler_entry, ZEND_STRL("notFound"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_callback_handler_entry, ZEND_STRL("cache"), ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	//HessianClient
+	INIT_CLASS_ENTRY(ce_hessian_client, "HessianClient", hessian_client_functions);
+	hessian_client_entry = zend_register_internal_class(&ce_hessian_client TSRMLS_CC);
+	zend_declare_property_null(hessian_client_entry, ZEND_STRL("url"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_client_entry, ZEND_STRL("options"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_client_entry, ZEND_STRL("typemap"), ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_client_entry, ZEND_STRL("factory"), ZEND_ACC_PUBLIC TSRMLS_CC);
+
+
+	INIT_CLASS_ENTRY(ce_ihessian_object_factory, "IHessianObjectFactory", ihessian_object_factory_functions);
+	ihessian_object_factory_entry = zend_register_internal_interface(&ce_ihessian_object_factory TSRMLS_CC);
+
+	
+	//register DubboStorageAbstract Class
+	INIT_CLASS_ENTRY(ce_hessian_object_factory, "HessianObjectFactory", hessian_object_factory_functions);
+	//dubbo_storage_abstract_class_entry= zend_register_internal_class_ex(&ce_dubbo_storage_abstract, zend_standard_class_def, NULL TSRMLS_CC);
+	hessian_object_factory_entry= zend_register_internal_class(&ce_hessian_object_factory TSRMLS_CC);
+	zend_class_implements(hessian_object_factory_entry , 1, ihessian_object_factory_entry TSRMLS_CC);
+	zend_declare_property_null(dubbo_storage_abstract_class_entry, "options", sizeof("options")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
 }
 
 /* {{{ PHP_MINIT_FUNCTION
