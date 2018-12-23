@@ -29,6 +29,13 @@
 extern zend_object_handlers dubbo_client_object_handlers;
 extern zend_object_handlers hessian_buffered_stream_object_handlers;
 
+struct _hessian_parsing_rule{
+	char *type;
+	char *func;
+	char *desc;
+}
+typedef struct _hessian_parsing_rule hessian_parsing_rule;
+
 
 struct dubbo_client_object {
     zend_object std;
@@ -42,6 +49,9 @@ void get_service_by_name(zval *name, zval *storage, zval* ret);
 void dubbo_client_free_storage(void *object TSRMLS_DC);
 
 zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC);
+PHP_FUNCTION(calltest);
+
+
 
 
 //HessianBufferedStream
@@ -63,6 +73,8 @@ extern zend_class_entry *hessian_callback_handler_entry;
 extern zend_class_entry *hessian_client_entry;
 extern zend_class_entry *ihessian_object_factory_entry;
 extern zend_class_entry *hessian_object_factory_entry;
+extern zend_class_entry *hessian_client_entry;
+
 
 
 
@@ -78,6 +90,7 @@ extern const zend_function_entry hessian_callback_handler_functions[];
 extern const zend_function_entry hessian_client_functions[];
 extern const zend_function_entry ihessian_object_factory_functions[];
 extern const zend_function_entry hessian_object_factory_functions[];
+extern const zend_function_entry hessian_client_functions[];
 
 
 #endif

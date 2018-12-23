@@ -51,6 +51,11 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_client_get_typemap, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_client_calltest, 0, 0, 1)
+	ZEND_ARG_INFO(0, func) /* string */
+ZEND_END_ARG_INFO()
+
+
 zend_class_entry *hessian_client_entry;
 
 
@@ -398,6 +403,47 @@ static PHP_METHOD(HessianClient, __getTypeMap)
 	return_value = zend_read_property(hessian_client_entry, self, ZEND_STRL("typemap"), 0 TSRMLS_DC);
 }
 
+//calltest
+//how to write a call method
+static PHP_METHOD(HessianClient, calltest)
+{
+	zval *fun;
+	zval *params, *retval_ptr = NULL;
+	zend_fcall_info *fci;
+	zend_fcall_info_cache *fci_cache;
+	char *is_callable_error;
+	zval *format;
+	
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &fun)) {
+		return;
+	}
+
+	fci = emalloc(sizeof(zend_fcall_info));
+	fci_cache = emalloc(sizeof(zend_fcall_info_cache));
+	fci->function_table = EG(function_table);
+	if (zend_fcall_info_init(fun, 0, fci, fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
+	}else{
+		return;
+	}
+
+	ALLOC_ZVAL(params);
+	array_init_size(params, 1);
+	ALLOC_ZVAL(format);
+	INIT_ZVAL(*format);
+	ZVAL_STRING(format, "Y-m-d H:i:s", 1);
+	zend_hash_next_index_insert(Z_ARRVAL_P(params), &format, sizeof(zval**), NULL);
+
+	zend_fcall_info_args(fci, params TSRMLS_CC);
+	fci->retval_ptr_ptr = &retval_ptr;
+
+	if (zend_call_function(fci, fci_cache TSRMLS_CC) == SUCCESS && fci->retval_ptr_ptr && *(fci->retval_ptr_ptr)) {
+		COPY_PZVAL_TO_ZVAL(*return_value, *(fci->retval_ptr_ptr));
+	}
+
+	zend_fcall_info_args_clear(fci, 1);
+	FREE_ZVAL(params);
+	FREE_ZVAL(format);
+}
 
 
 
@@ -409,6 +455,7 @@ const zend_function_entry hessian_client_functions[] = {
 	PHP_ME(HessianClient, call,			arginfo_hessian_client_call,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianClient, __getOptions,			arginfo_hessian_client_get_options,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianClient, __getTypeMap,			arginfo_hessian_client_get_typemap,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianClient, calltest,			arginfo_hessian_client_calltest,		ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

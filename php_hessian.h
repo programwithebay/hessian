@@ -41,12 +41,11 @@ extern zend_module_entry hessian_module_entry;
 /* 
   	Declare any global variables you may need between the BEGIN
 	and END macros here:     
-
-ZEND_BEGIN_MODULE_GLOBALS(hessian)
-	long  global_value;
-	char *global_string;
-ZEND_END_MODULE_GLOBALS(hessian)
 */
+ZEND_BEGIN_MODULE_GLOBALS(hessian)
+	hessian_parsing_rule hessian2_rules[44];
+	byte	hessian2_symbols[256];
+ZEND_END_MODULE_GLOBALS(hessian)
 
 /* In every utility function you add that needs to use variables 
    in php_hessian_globals, call TSRMLS_FETCH(); after declaring other 
