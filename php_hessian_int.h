@@ -71,11 +71,17 @@ extern zend_class_entry *dubbo_service_class_entry;
 extern zend_class_entry *hessian_buffered_stream_entry;
 extern zend_class_entry *hessian_callback_handler_entry;
 extern zend_class_entry *hessian_client_entry;
-extern zend_class_entry *ihessian_object_factory_entry;
 extern zend_class_entry *hessian_object_factory_entry;
 extern zend_class_entry *hessian_client_entry;
-
-
+extern zend_class_entry *ihessian_object_factory_entry;
+extern zend_class_entry *ihessian_custom_writer_entry;
+extern zend_class_entry *ihessian_interceptor_entry;
+extern zend_class_entry *hessian_calling_context_entry;
+extern zend_class_entry *ihessian_ignore_code_entry;
+extern zend_class_entry *hessian_class_def_entry;
+extern zend_class_entry *hessian_call_entry;
+extern zend_class_entry *hessian_ref_entry;
+extern zend_class_entry *hessian_stream_result_entry;
 
 
 //class function
@@ -88,10 +94,17 @@ extern const zend_function_entry dubbo_service_functions[];
 extern const zend_function_entry hessian_buffered_stream_functions[];
 extern const zend_function_entry hessian_callback_handler_functions[];
 extern const zend_function_entry hessian_client_functions[];
-extern const zend_function_entry ihessian_object_factory_functions[];
 extern const zend_function_entry hessian_object_factory_functions[];
 extern const zend_function_entry hessian_client_functions[];
-
+extern const zend_function_entry ihessian_object_factory_functions[];
+extern const zend_function_entry  ihessian_custom_writer_functions[];
+extern const zend_function_entry  hessian_calling_context_functions[];
+extern const zend_function_entry  ihessian_interceptor_functions[];
+extern const zend_function_entry ihessian_ignore_code_functions[];
+extern const zend_function_entry hessian_class_def_functions[];
+extern const zend_function_entry hessian_class_functions[];
+extern const zend_function_entry hessian_ref_functions[];
+extern const zend_function_entry hessian_stream_result_functions[];
 
 #endif
 

@@ -24,14 +24,6 @@
 
 
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ihessian_object_factory_get_object, 0, 0, 1)
-	ZEND_ARG_INFO(0, type) /* string */
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ihessian_object_factory_set_options, 0, 0, 1)
-	ZEND_ARG_OBJ_INFO(0, options, "HessianOptions", 0) /* string */
-ZEND_END_ARG_INFO()
-
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_object_factory_set_options, 0, 0, 1)
 	ZEND_ARG_OBJ_INFO(0, options, "HessianOptions", 0) /* string */
 ZEND_END_ARG_INFO()
@@ -68,7 +60,6 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_factory_get_transport, 0, 0, 1)
 ZEND_END_ARG_INFO()
 
 
-zend_class_entry *ihessian_object_factory_entry;
 zend_class_entry *hessian_object_factory_entry;
 zend_class_entry *hessian_datetime_adapter_entry;
 zend_class_entry *hessian_factory_entry;
@@ -541,14 +532,6 @@ static PHP_METHOD(HessianFactory, getTransport)
 	call_user_function(NULL, return_value, &function_name, NULL, 0, NULL TSRMLS_CC);
 }
 
-
-
-//IDubboStorage interface
-const zend_function_entry ihessian_object_factory_functions[] = {
-	PHP_ABSTRACT_ME(IHessianObjectFactory, getObject, arginfo_ihessian_object_factory_get_object)
-	PHP_ABSTRACT_ME(IHessianObjectFactory, setOptions, arginfo_ihessian_object_factory_set_options)
-	PHP_FE_END
-};
 
 
 

@@ -23,6 +23,34 @@
 #include "hessian_common.h"
 
 
+//params
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_call_construct, 0, 0, 2)
+	ZEND_ARG_INFO(0, method) /* string */
+	ZEND_ARG_INFO(0, arguments) /* string */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_ref_isref, 0, 0, 1)
+	ZEND_ARG_INFO(0, val) /* string */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_ref_get_index, 0, 0, 1)
+	ZEND_ARG_INFO(0, list) /* string */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_result_construct, 0, 0, 1)
+	ZEND_ARG_INFO(0, stream) /* string */
+ZEND_END_ARG_INFO()
+
+
+
+//entry
+zend_class_entry *ihessian_ignore_code_entry;
+zend_class_entry *hessian_class_def_entry;
+zend_class_entry *hessian_call_entry;
+zend_class_entry *hessian_ref_entry;
+zend_class_entry *hessian_stream_result_entry;
+
+
 /*
 	HessianRuleResolver::resolveSymbol
 */
@@ -62,6 +90,141 @@ hessian_parsing_rule hessian_rule_resolver_resolve_symbol(char symbol, char *typ
 
 	return rule;
 }
+
+
+/*
+	HessianCall::__construct
+*/
+static PHP_METHOD(HessianCall, __construct)
+{
+	zval *self, *method, *arguments;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &method,&arguments) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	self= getThis();
+	zend_update_property(hessian_call_entry, self, ZEND_STRL("method"),  method TSRMLS_DC);
+	zend_update_property(hessian_call_entry, self, ZEND_STRL("arguments"), arguments TSRMLS_DC);
+}
+
+
+
+/*
+	HessianRef::isRef
+*/
+static PHP_METHOD(HessianRef, isRef)
+{
+	zval *val;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &val) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	RETURN_BOOL(instanceof_function(Z_OBJCE_P(val), hessian_ref_entry TSRMLS_DC));
+}
+
+
+
+/*
+	HessianRef::getIndex
+*/
+static PHP_METHOD(HessianRef, getIndex)
+{
+	zval *list;
+	zval function_name;
+	zval *params[1];
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &list) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	object_init_ex(return_value, hessian_ref_entry);
+	INIT_ZVAL(function_name);
+	ZVAL_STRING(function_name, "__construct", 1);
+	params[0] = list;
+	call_user_function(NULL, return_value, &function_name, NULL, 1, params TSRMLS_CC);
+}
+
+
+/*
+	HessianRef::__construct
+*/
+static PHP_METHOD(HessianRef, __construct)
+{
+	zval *list, *self;
+	long cnt;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &list) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	self = getThis();
+	if (Z_TYPE_P(list) == IS_ARRAY){
+		zval *index;
+		ALLOC_ZVAL(index);
+		INIT_ZVAL(index);
+		cnt = zend_hash_num_elements(Z_ARRVAL_P(list));
+		ZVAL_LONG(&index, ZEND_CONSTRUCTOR_FUNC_NAME, cnt);
+		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), index TSRMLS_DC);
+	}else{
+		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), list TSRMLS_DC);
+	}
+}
+
+
+
+/*
+	HessianStreamResult::__construct
+*/
+static PHP_METHOD(HessianStreamResult, __construct)
+{
+	zval *stream, *self;
+
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &stream) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	self = getThis();
+	zend_update_property(hessian_ref_entry, self, ZEND_STRL("stream"), stream TSRMLS_DC);
+}
+
+
+
+
+//IHessianInterceptor interface
+const zend_function_entry ihessian_ignore_code_functions[] = {
+	PHP_FE_END
+};
+
+//HessianCallingContext functions
+const zend_function_entry hessian_class_def_functions[] = {
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
+//HessianCall functions
+const zend_function_entry hessian_call_functions[] = {
+	PHP_ME(HessianCall, __construct, 	arginfo_hessian_call_construct,		ZEND_ACC_PUBLIC)
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
+//HessianRef functions
+const zend_function_entry hessian_ref_functions[] = {
+	PHP_ME(HessianCall, isRef, 	arginfo_hessian_ref_isref,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianCall, getIndex, 	arginfo_hessian_ref_get_index,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianCall, __construct, 	arginfo_hessian_ref_construct,		ZEND_ACC_PUBLIC)
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
+
+//HessianStreamResult functions
+const zend_function_entry hessian_stream_result_functions[] = {
+	PHP_ME(HessianStreamResult, __construct, 	arginfo_hessian_stream_result_construct,		ZEND_ACC_PUBLIC)
+	PHP_FE_END	/* Must be the last line in hessian_functions[] */
+};
+
+
 
 
 
