@@ -30,9 +30,13 @@
 #include "php_hessian_int.h"
 
 
-/* If you declare any globals in php_hessian.h uncomment this:
+#define DECLARE_HESSIAN_RULE(index, type, func, desc) \
+	HESSIAN_G(hessian2_rules)[index].type =  type; \
+	HESSIAN_G(hessian2_rules)[index].func = func; \
+	HESSIAN_G(hessian2_rules)[index].desc = desc; 
+
 ZEND_DECLARE_MODULE_GLOBALS(hessian)
-*/
+
 
 /* True global resources - no need for thread safety here */
 static int le_hessian;
@@ -251,54 +255,68 @@ void register_hessian_ext_class(){
 	hessian_stream_result_entry= zend_register_internal_class(&ce_hessian_stream_result TSRMLS_CC);
 }
 
+
+//declare hessian2_rules
+void inline hessian_declare_global_hessian_rules(int index, char *type, char *func, char *desc)
+{
+	HESSIAN_G(hessian2_rules)[index].type = type;
+	HESSIAN_G(hessian2_rules)[index].func = func;
+	HESSIAN_G(hessian2_rules)[index].desc = desc;
+}
+
 //init hessian globals
 void init_hessian_globals(){
 
-	HESSIAN_G(hessian2_rules)[0] = {"binary", "binary0", "binary data length 0-16"};
-	HESSIAN_G(hessian2_rules)[1] = {"binary", "binary1", "binary data length 0-1023"};
-	HESSIAN_G(hessian2_rules)[2] = {"binary", "binaryLong", "8-bit binary data non-final chunk ('A')"};
-	HESSIAN_G(hessian2_rules)[3] = {"binary", "binaryLong", "8-bit binary data final chunk ('B')"};
-	HESSIAN_G(hessian2_rules)[4] = {"boolean", "bool", "boolean false ('F')"};
-	HESSIAN_G(hessian2_rules)[5] = {"boolean", "bool", "boolean true ('T')"};
-	HESSIAN_G(hessian2_rules)[6] = {"date", "date", "64-bit UTC millisecond date"};
-	HESSIAN_G(hessian2_rules)[7] = {"date", "compactDate", "32-bit UTC minute date"};
-	HESSIAN_G(hessian2_rules)[8] = {"double", "double64", "64-bit IEEE encoded double ('D')"};
-	HESSIAN_G(hessian2_rules)[9] = {"double", "double1", "double 0.0"};
-	HESSIAN_G(hessian2_rules)[10] = {"double", "double1", "double 1.0"};
-	HESSIAN_G(hessian2_rules)[11] = {"double", "double1", "double represented as byte (-128.0 to 127.0)"};
-	HESSIAN_G(hessian2_rules)[12] = {"double", "double2", "double represented as short (-32768.0 to 327676.0)"};
-	HESSIAN_G(hessian2_rules)[13] = {"double", "double4", "double represented as float"};
-	HESSIAN_G(hessian2_rules)[14] = {"integer", "parseInt", "32-bit signed integer ('I')"};
-	HESSIAN_G(hessian2_rules)[15] = {"integer", "compactInt1", "one-octet compact int (-x10 to x3f, x90 is 0)"};
-	HESSIAN_G(hessian2_rules)[16] = {"integer", "compactInt2", "two-octet compact int (-x800 to x7ff)"};
-	HESSIAN_G(hessian2_rules)[17] = {"integer", "compactInt3", "three-octet compact int (-x40000 to x3ffff)"};
-	HESSIAN_G(hessian2_rules)[18] = {"list", "vlenList", "variable-length list/vector ('U')"};
-	HESSIAN_G(hessian2_rules)[19] = {"list", "flenList", "fixed-length list/vector ('V')"};
-	HESSIAN_G(hessian2_rules)[20] = {"list", "vlenUntypedList", "variable-length untyped list/vector ('W')"};
-	HESSIAN_G(hessian2_rules)[21] = {"list", "flenUntypedList", "fixed-length untyped list/vector ('X')"};
-	HESSIAN_G(hessian2_rules)[22] = {"list", "directListTyped", "fixed list with direct length"};
-	HESSIAN_G(hessian2_rules)[23] = {"list", "directListUntyped", "fixed untyped list with direct length"};
-	HESSIAN_G(hessian2_rules)[24] = {"long", "long3", "three-octet compact long (-x40000 to x3ffff)"};
-	HESSIAN_G(hessian2_rules)[25] = {"long", "long64", "64-bit signed long integer ('L')"};
-	HESSIAN_G(hessian2_rules)[26] = {"long", "long32", "long encoded as 32-bit int ('Y')"};
-	HESSIAN_G(hessian2_rules)[27] = {"long", "long1", "one-octet compact long (-x8 to xf, xe0 is 0)"};
-	HESSIAN_G(hessian2_rules)[28] = {"long", "long2", "two-octet compact long (-x800 to x7ff, xf8 is 0)"};
-	HESSIAN_G(hessian2_rules)[29] = {"map", "untypedMap", "untyped map ('H')"};
-	HESSIAN_G(hessian2_rules)[30] = {"map", "typedMap", "map with type ('M')"};
-	HESSIAN_G(hessian2_rules)[31] = {"null", "parseNull", "null ('N')"};
-	HESSIAN_G(hessian2_rules)[32] = {"object", "typeDefinition", "object type definition ('C')"};
-	HESSIAN_G(hessian2_rules)[33] = {"object", "objectInstance", "object instance ('O')"};
-	HESSIAN_G(hessian2_rules)[34] = {"object", "objectDirect", "object with direct type"};
-	HESSIAN_G(hessian2_rules)[35] = {"reference", "reference", "reference to map/list/object - integer ('Q')"};
-	HESSIAN_G(hessian2_rules)[36] = {"reserved", "reserved", "reserved (expansion/escape)"};
-	HESSIAN_G(hessian2_rules)[37] = {"reserved", "reserved", "reserved"};
-	HESSIAN_G(hessian2_rules)[38] = {"reserved", "reserved", "reserved"};
-	HESSIAN_G(hessian2_rules)[39] = {"reserved", "reserved", "reserved"};
-	HESSIAN_G(hessian2_rules)[40] = {"string", "string0", "utf-8 string length 0-32"};
-	HESSIAN_G(hessian2_rules)[41] = {"string", "string1", "utf-8 string length 0-1023"};
-	HESSIAN_G(hessian2_rules)[42] = {"string", "stringLong", "utf-8 string non-final chunk ('R')"};
-	HESSIAN_G(hessian2_rules)[43] = {"string", "stringLong", "utf-8 string final chunk ('S')"};
-	HESSIAN_G(hessian2_rules)[44] = {"terminator", "terminator", "list/map terminator ('Z')"};
+	//HESSIAN_G(hessian2_rules)[0].type= = {.type="binary", .funct="binary0", .desc="binary data length 0-16"};
+	
+	//who not?
+	//DECLARE_HESSIAN_RULE(0, "binary", "binary0", "binary data length 0-16")
+
+	hessian_declare_global_hessian_rules(0, "binary", "binary0", "binary data length 0-16");
+	hessian_declare_global_hessian_rules(1, "binary", "binary1", "binary data length 0-1023");
+	hessian_declare_global_hessian_rules(2, "binary", "binaryLong", "8-bit binary data non-final chunk ('A')");
+	hessian_declare_global_hessian_rules(3, "binary", "binaryLong", "8-bit binary data final chunk ('B')");
+	hessian_declare_global_hessian_rules(4, "boolean", "bool", "boolean false ('F')");
+	hessian_declare_global_hessian_rules(5, "boolean", "bool", "boolean true ('T')");
+	hessian_declare_global_hessian_rules(6, "date", "date", "64-bit UTC millisecond date");
+	hessian_declare_global_hessian_rules(7, "date", "compactDate", "32-bit UTC minute date");
+	hessian_declare_global_hessian_rules(8, "double", "double64", "64-bit IEEE encoded double ('D')");
+	hessian_declare_global_hessian_rules(9, "double", "double1", "double 0.0");
+	hessian_declare_global_hessian_rules(10, "double", "double1", "double 1.0");
+	hessian_declare_global_hessian_rules(11, "double", "double1", "double represented as byte (-128.0 to 127.0)");
+	hessian_declare_global_hessian_rules(12, "double", "double2", "double represented as short (-32768.0 to 327676.0)");
+	hessian_declare_global_hessian_rules(13, "double", "double4", "double represented as float");
+	hessian_declare_global_hessian_rules(14, "integer", "parseInt", "32-bit signed integer ('I')");
+	hessian_declare_global_hessian_rules(15, "integer", "compactInt1", "one-octet compact int (-x10 to x3f, x90 is 0)");
+	hessian_declare_global_hessian_rules(16,"integer", "compactInt2", "two-octet compact int (-x800 to x7ff)");
+	hessian_declare_global_hessian_rules(17, "integer", "compactInt3", "three-octet compact int (-x40000 to x3ffff)");
+	hessian_declare_global_hessian_rules(18,"list", "vlenList", "variable-length list/vector ('U')");
+	hessian_declare_global_hessian_rules(19,"list", "flenList", "fixed-length list/vector ('V')");
+	hessian_declare_global_hessian_rules(20,"list", "vlenUntypedList", "variable-length untyped list/vector ('W')");
+	hessian_declare_global_hessian_rules(21,"list", "flenUntypedList", "fixed-length untyped list/vector ('X')");
+	hessian_declare_global_hessian_rules(22,"list", "directListTyped", "fixed list with direct length");
+	hessian_declare_global_hessian_rules(23,"list", "directListUntyped", "fixed untyped list with direct length");
+	hessian_declare_global_hessian_rules(24,"long", "long3", "three-octet compact long (-x40000 to x3ffff)");
+	hessian_declare_global_hessian_rules(25,"long", "long64", "64-bit signed long integer ('L')");
+	hessian_declare_global_hessian_rules(26,"long", "long32", "long encoded as 32-bit int ('Y')");
+	hessian_declare_global_hessian_rules(27,"long", "long1", "one-octet compact long (-x8 to xf, xe0 is 0)");
+	hessian_declare_global_hessian_rules(28,"long", "long2", "two-octet compact long (-x800 to x7ff, xf8 is 0)");
+	hessian_declare_global_hessian_rules(29,"map", "untypedMap", "untyped map ('H')");
+	hessian_declare_global_hessian_rules(30,"map", "typedMap", "map with type ('M')");
+	hessian_declare_global_hessian_rules(31,"null", "parseNull", "null ('N')");
+	hessian_declare_global_hessian_rules(32,"object", "typeDefinition", "object type definition ('C')");
+	hessian_declare_global_hessian_rules(33,"object", "objectInstance", "object instance ('O')");
+	hessian_declare_global_hessian_rules(34,"object", "objectDirect", "object with direct type");
+	hessian_declare_global_hessian_rules(35,"reference", "reference", "reference to map/list/object - integer ('Q')");
+	hessian_declare_global_hessian_rules(36,"reserved", "reserved", "reserved (expansion/escape)");
+	hessian_declare_global_hessian_rules(37,"reserved", "reserved", "reserved");
+	hessian_declare_global_hessian_rules(38,"reserved", "reserved", "reserved");
+	hessian_declare_global_hessian_rules(39,"reserved", "reserved", "reserved");
+	hessian_declare_global_hessian_rules(40,"string", "string0", "utf-8 string length 0-32");
+	hessian_declare_global_hessian_rules(41,"string", "string1", "utf-8 string length 0-1023");
+	hessian_declare_global_hessian_rules(42,"string", "stringLong", "utf-8 string non-final chunk ('R')");
+	hessian_declare_global_hessian_rules(43,"string", "stringLong", "utf-8 string final chunk ('S')");
+	hessian_declare_global_hessian_rules(44,"terminator", "terminator", "list/map terminator ('Z')");
 
 	//symboles
 	HESSIAN_G(hessian2_symbols)[32] = 0;

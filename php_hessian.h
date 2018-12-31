@@ -21,6 +21,14 @@
 #ifndef PHP_HESSIAN_H
 #define PHP_HESSIAN_H
 
+struct _hessian_parsing_rule{
+	char *type;
+	char *func;
+	char *desc;
+};
+
+typedef struct _hessian_parsing_rule hessian_parsing_rule;
+
 extern zend_module_entry hessian_module_entry;
 #define phpext_hessian_ptr &hessian_module_entry
 
@@ -44,7 +52,7 @@ extern zend_module_entry hessian_module_entry;
 */
 ZEND_BEGIN_MODULE_GLOBALS(hessian)
 	hessian_parsing_rule hessian2_rules[44];
-	byte	hessian2_symbols[256];
+	char	hessian2_symbols[256];
 ZEND_END_MODULE_GLOBALS(hessian)
 
 /* In every utility function you add that needs to use variables 
