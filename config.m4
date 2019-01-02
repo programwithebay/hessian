@@ -12,5 +12,5 @@ if test "$PHP_HESSIAN" != "no"; then
   dnl PHP_REQUIRE_CXX()
   PHP_SUBST(HESSIAN_SHARED_LIBADD)
   dnl PHP_ADD_LIBRARY(stdc++, 1, HESSIAN_SHARED_LIBADD)
-  PHP_NEW_EXTENSION(hessian, hessian.c  php_dubbo_client.c dubbo_storage.c dubbo_service.c hessian_buffered_stream.c hessian_callback_handler.c hessian_client.c hessian_factory.c hessian_parsing.c hessian_interface.c hessian_options.c hessian_reference_map.c hessian_service.c, $ext_shared)
+  PHP_NEW_EXTENSION(hessian, hessian.c  php_dubbo_client.c dubbo_storage.c dubbo_service.c hessian_buffered_stream.c hessian_callback_handler.c hessian_client.c hessian_factory.c hessian_parsing.c hessian_interface.c hessian_options.c hessian_reference_map.c hessian_service.c hessian_stream.c hessian_transport.c hessian_type_map.c, $ext_shared)
 fi

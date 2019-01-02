@@ -385,7 +385,7 @@ static PHP_METHOD(HessianService, handle)
 	*/
 
 	if (php_output_start_user(NULL, 0, 0 TSRMLS_CC) == FAILURE) {
-		php_error_docref("ref.outcontrol" TSRMLS_CC, E_NOTICE, "failed to create buffer");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "failed to create buffer");
 		RETURN_FALSE;
 	}
 	
@@ -714,6 +714,69 @@ static PHP_METHOD(HessianService, isMethodCallable)
 }
 
 
+//hessianServiceErrorHandler
+PHP_FUNCTION(hessianServiceErrorHandler)
+{
+	long err_no, err_line;
+	zval *err_str, *err_file, ex, z_err_msg;
+	int err_str_len, err_file_len;
+	char err_msg[512];
+	int len;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lssl", &err_no, &err_str, &err_str_len, &err_file, &err_file_len, &err_line) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	/*
+	switch ($errno) {
+	    case E_USER_ERROR:
+	        $msg = "<b>Fatal error</b> [$errno] $errstr<br />\n";
+	        break;
+	    case E_USER_WARNING:
+	        $msg = "<b>WARNING</b> [$errno] $errstr<br />\n";
+	        break;
+
+	    case E_USER_NOTICE:
+	        $msg = "<b>NOTICE</b> [$errno] $errstr<br />\n";
+	        break;
+	    default:
+	        $msg = "Unknown error type: [$errno] $errstr<br />\n";
+	        break;
+	    }
+    */
+
+	switch(err_no){
+		case 256:	//E_USER_ERROR
+			len = sprintf(err_msg, "<b>Fatal error</b> [%d] %s<br />\n", err_no, err_str);
+			break;
+		case 512:	//E_USER_WARNING
+			len = sprintf(err_msg, "<b>WARNING</b> [%d] %s<br />\n", err_no, err_str);
+			break;
+		case 1024:	//E_USER_NOTICE
+			len = sprintf(err_msg, "<b>NOTICE</b> [%d] %s<br />\n", err_no, err_str);
+			break;
+		default:
+			len = sprintf(err_msg, "Unknown error type: [%d] %s<br />\n", err_no, err_str);
+			break;
+	}
+
+	/*
+		$msg .= "on line $errline in file $errfile";
+	    $ex = new HessianFault($msg, $errno);
+	    $ex->detail = $msg;
+	    throw $ex;
+	    return true;
+    */
+    sprintf(err_msg + len, "on line %d in file %s", err_line, err_file);
+	object_init_ex(&ex, hessian_fault_entry);
+	INIT_ZVAL(ex);
+	ZVAL_STRING(z_err_msg, err_msg, 1);
+	zend_update_property(NULL, ex, ZEND_STRL("detail"), &z_err_msg TSRMLS_DC);
+	zend_throw_exception(hessian_fault_entry, err_msg, err_no TSRMLS_DC);
+	RETURN_TRUE;
+}
+
+
 //HessianService functions
 const zend_function_entry hessian_service_functions[] = {
 	PHP_ME(HessianService, __construct, 	arginfo_hessian_service_construct,		ZEND_ACC_PUBLIC)
@@ -723,6 +786,7 @@ const zend_function_entry hessian_service_functions[] = {
 	PHP_ME(HessianService, displayInfo, 	arginfo_hessian_service_display_info,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianService, callMethod, 	arginfo_hessian_service_call_method,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianService, isMethodCallable, 	arginfo_hessian_service_is_method_callable,		ZEND_ACC_PROTECTED)
+	PHP_FE(hessianServiceErrorHandler,  NULL)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

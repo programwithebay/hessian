@@ -253,6 +253,26 @@ void register_hessian_ext_class(){
 	zend_class_entry ce_hessian_stream_result;
 	INIT_CLASS_ENTRY(ce_hessian_stream_result, "HessianStreamResult", hessian_stream_result_functions);
 	hessian_stream_result_entry= zend_register_internal_class(&ce_hessian_stream_result TSRMLS_CC);
+
+	//HessinaStream
+	zend_class_entry ce_hessian_stream;
+	INIT_CLASS_ENTRY(ce_hessian_stream, "HessianStream", hessian_stream_functions);
+	hessian_stream_entry= zend_register_internal_class(&ce_hessian_stream TSRMLS_CC);
+	zend_declare_property_long(hessian_stream_entry, "pos", sizeof("pos")-1,  0, ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_long(hessian_stream_entry, "len", sizeof("len")-1,  0, ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_stream_entry, "bytes", sizeof("bytes")-1,  0, ZEND_ACC_PROTECTED TSRMLS_CC);
+
+	//IHessianTransport && HessianCURLTransport
+	zend_class_entry ce_ihessian_transport, ce_hessian_curl_transport_entry;
+	INIT_CLASS_ENTRY(ce_ihessian_transport, "IHessianTransport", ihessian_transport_functions);
+	ihessian_transport_entry = zend_register_internal_interface(&ce_ihessian_transport TSRMLS_CC);
+
+
+	INIT_CLASS_ENTRY(ce_hessian_curl_transport_entry, "HessianCURLTransport", hessian_curl_transport_functions);
+	hessian_curl_transport_entry = zend_register_internal_class(&ce_hessian_curl_transport_entry TSRMLS_CC);
+	zend_class_implements(hessian_curl_transport_entry , 1, ihessian_transport_entry TSRMLS_CC);
+	zend_declare_property_null(hessian_curl_transport_entry, "metadata", sizeof("metadata")-1, ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_curl_transport_entry, "rawData", sizeof("rawData")-1, ZEND_ACC_PROTECTED TSRMLS_CC);
 }
 
 

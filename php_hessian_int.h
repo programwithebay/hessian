@@ -101,6 +101,9 @@ extern zend_class_entry *hessian_class_def_entry;
 extern zend_class_entry *hessian_call_entry;
 extern zend_class_entry *hessian_ref_entry;
 extern zend_class_entry *hessian_stream_result_entry;
+extern zend_class_entry *hessian_stream_entry;
+extern zend_class_entry *ihessian_transport_entry;
+extern zend_class_entry *hessian_curl_transport_entry;
 
 
 //class function
@@ -125,7 +128,9 @@ extern const zend_function_entry hessian_class_functions[];
 extern const zend_function_entry hessian_ref_functions[];
 extern zend_function_entry *hessian_call_functions;
 extern const zend_function_entry hessian_stream_result_functions[];
-
+extern const zend_function_entry hessian_stream_functions[];
+extern const zend_function_entry ihessian_transport_functions[];
+extern const zend_function_entry hessian_curl_transport_functions[];
 #endif
 
 
