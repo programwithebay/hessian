@@ -263,16 +263,33 @@ void register_hessian_ext_class(){
 	zend_declare_property_null(hessian_stream_entry, "bytes", sizeof("bytes")-1,  0, ZEND_ACC_PROTECTED TSRMLS_CC);
 
 	//IHessianTransport && HessianCURLTransport
-	zend_class_entry ce_ihessian_transport, ce_hessian_curl_transport_entry;
+	zend_class_entry ce_ihessian_transport, ce_hessian_curl_transport;
 	INIT_CLASS_ENTRY(ce_ihessian_transport, "IHessianTransport", ihessian_transport_functions);
 	ihessian_transport_entry = zend_register_internal_interface(&ce_ihessian_transport TSRMLS_CC);
 
 
-	INIT_CLASS_ENTRY(ce_hessian_curl_transport_entry, "HessianCURLTransport", hessian_curl_transport_functions);
-	hessian_curl_transport_entry = zend_register_internal_class(&ce_hessian_curl_transport_entry TSRMLS_CC);
+	INIT_CLASS_ENTRY(ce_hessian_curl_transport, "HessianCURLTransport", hessian_curl_transport_functions);
+	hessian_curl_transport_entry = zend_register_internal_class(&ce_hessian_curl_transport TSRMLS_CC);
 	zend_class_implements(hessian_curl_transport_entry , 1, ihessian_transport_entry TSRMLS_CC);
 	zend_declare_property_null(hessian_curl_transport_entry, "metadata", sizeof("metadata")-1, ZEND_ACC_PROTECTED TSRMLS_CC);
 	zend_declare_property_null(hessian_curl_transport_entry, "rawData", sizeof("rawData")-1, ZEND_ACC_PROTECTED TSRMLS_CC);
+
+	//HessianTypeMap and hessian utils
+	zend_class_entry ce_ihessian_type_map, ce_hessian_utils;
+	INIT_CLASS_ENTRY(ce_ihessian_type_map, "HessianTypeMap", hessian_type_map_functions);
+	hessian_type_map_entry =  zend_register_internal_class(&ce_ihessian_type_map TSRMLS_CC);
+	zend_declare_property_null(hessian_type_map_entry, "types", sizeof("types")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_type_map_entry, "localRules", sizeof("localRules")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_type_map_entry, "remoteRules", sizeof("remoteRules")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	INIT_CLASS_ENTRY(ce_hessian_utils, "HessianUtils", hessian_utils_functions);
+	hessian_util_entry =  zend_register_internal_class(&ce_hessian_utils TSRMLS_CC);
+	zend_declare_property_null(hessian_util_entry, "littleEndian", sizeof("littleEndian")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	
+	zval *pow32;
+	ALLOC_ZVAL(pow32);
+	Z_LVAL_P(pow32,  4294967296);
+	zend_declare_class_constant(hessian_util_entry, "pow32", sizeof("pow32")-1, pow32 ZEND_ACC_PUBLIC TSRMLS_CC);
 }
 
 
