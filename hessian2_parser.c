@@ -93,6 +93,21 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_compact_int1, 0, 0, 2)
 	ZEND_ARG_INFO(0, num) /* string */
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_read_utf8_bytes, 0, 0, 1)
+	ZEND_ARG_INFO(0, len) /* string */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_parse_type, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_fill_map, 0, 0, 1)
+	ZEND_ARG_INFO(0, index) /* string */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_reference, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+
 
 
 
@@ -117,6 +132,99 @@ void hessian2_parser_read(zval *self, ulong count, zval *return_value)
 	params[0] = &z_count;
 
 	call_user_function(NULL, stream, &function_name, &return_value, 1, params TSRMLS_DC);
+}
+
+
+
+/*
+	readUTF8Bytes
+*/
+void hessian2_parser_read_utf8_bytes(zval *self, ulong len, zval *return_value)
+{
+	zval *read_str;
+	int pos, pass;
+	char *string;
+	uchar char_code;
+
+	/*
+	 $pos    = 0;
+        $pass   = 1;
+        while ($pass <= $len) {
+            $charCode = ord($string[$pos]);
+            if ($charCode < 0x80) {
+                $pos++;
+            } elseif (($charCode & 0xe0) == 0xc0) {
+                $pos    += 2;
+                $string .= $this->read(1);
+            } elseif (($charCode & 0xf0) == 0xe0) {
+                $pos    += 3;
+                $string .= $this->read(2);
+            }
+            $pass++;
+        }
+     */
+    string = Z_STRVAL_P(read_str);
+	pos = 0;
+	pass = 1;
+
+	while(pass <= len){
+		char_code = string[pos];
+		if (char_code < 0x80){
+			++pos;
+		}else if ((char_code & 0xe0) == 0xc0){
+			pos += 2;
+			// $string .= $this->read(1);
+			hessian2_parser_read(self, 1, read_str);
+			string = strcat(string, Z_STRVAL_P(read_str));
+		}else if ((char_code & 0xf0) == 0xe0){
+			pos += 3;
+			// $string .= $this->read(2);
+			hessian2_parser_read(self, 2, read_str); 
+			string = strcat(string, Z_STRVAL_P(read_str));
+		}
+		++pass;
+	}
+
+	ZVAL_STRING(return_value, string, 1);
+}
+
+/*
+	Hessian2Parser::stringLongData
+*/
+void hessian2_parser_string_long_data(self, zval *return_value)
+{
+	ulong code, num, len;
+	zval *self, *read_str, *tmp_len;
+	zval function_name, param1;
+	zval *params[2];
+	zval *z_len;
+	zval string;
+
+	/*
+		$tempLen = unpack('n', $this->read(2));
+        $len     = $tempLen[1];
+        return $this->readUTF8Bytes($len);
+	*/ 
+
+	hessian2_parser_read(self, 2, read_str);
+	ZVAL_STRING(&function_name, "unpack", 1);
+	ZVAL_STRING(&param1, "n", 1);
+	params[0] = &param1;
+	params[1] = read_str;
+
+	call_user_function(EG(function_table), NULL, &function_name, tmp_len, 2, params TSRMLS_DC);
+	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(tmp_len), "1", 1, &z_len)){
+		RETURN_FALSE;
+	}
+
+	len = Z_LVAL_P(tmp_len);
+	hessian2_parser_read_utf8_bytes(self, len, &string);
+
+	//estrndup
+
+	Z_TYPE_P(return_value) = IS_STRING;
+	Z_STRVAL_P(return_value) = estrndup(Z_STRVAL(string), Z_STRLEN(string));
+	Z_STRLEN_P(return_value) = Z_STRLEN(string);
 }
 
 
@@ -868,6 +976,1399 @@ static PHP_METHOD(Hessian2Parser, double2)
 }
 
 
+/*
+	Hessian2Parser::double4
+*/
+static PHP_METHOD(Hessian2Parser, double4)
+{
+	ulong code, num;
+	zval *self, *read_str, *b;
+
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		 $b   = $this->read(4);
+        $num = (ord($b[0]) << 24) +
+            (ord($b[1]) << 16) +
+            (ord($b[2]) << 8) +
+            ord($b[3]);
+        return 0.001 * $num;
+	*/ 
+	hessian2_parser_read(self, 4, read_str);
+	num = Z_STRVAL_P(read_str)[0] << 24 + Z_STRVAL_P(read_str)[1] << 16 + Z_STRVAL_P(read_str)[2] << 8 + Z_STRVAL_P(read_str)[3];
+
+	RETURN_DOUBLE(0.001 * num);
+}
+
+/*
+	Hessian2Parser::double64
+*/
+static PHP_METHOD(Hessian2Parser, double64)
+{
+	ulong code, num;
+	zval *self, *read_str;
+	zval *little_endian, *double, *res;;
+	zval function_name, param1;
+	zval *params[2];	
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		 $bytes = $this->read(8);
+        if (HessianUtils::$littleEndian)
+            $bytes = strrev($bytes);
+        //$double = unpack("dflt", strrev($bytes));
+        $double = unpack("dflt", $bytes);
+        return $double['flt'];
+	*/ 
+	hessian2_parser_read(self, 8, read_str);
+	little_endian = zend_read_property(hessian_utils_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	if (i_zend_is_true(little_endian)){
+		
+
+		ZVAL_STRING(function_name, "strrev", 1);
+		params[0] = read_str;
+
+		call_user_function(EG(function_table), NULL, &function_name, read_str, 1, params TSRMLS_DC);
+	}
+
+	ZVAL_STRING(function_name, "unpack", 1);
+	ZVAL_STRING(param1, "dflt", 1);
+	params[0] = &param1;
+	params[1] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, double, 2, params TSRMLS_DC);
+
+	zend_hash_find(Z_ARRVAL_P(read_str), "flt", 3, &res);
+	RETURN_ZVAL(res, 0);
+}
+
+
+/*
+	Hessian2Parser::long1
+*/
+static PHP_METHOD(Hessian2Parser, long1)
+{
+	ulong code, num;
+	zval *self;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		  if ($code == 0xe0)
+            return 0;
+        return $num - 0xe0;
+	*/ 
+
+	if (0xe0 == code){
+		RETURN_LONG(0);
+	}
+	RETURN_LONG(num - 0xe0);
+}
+
+
+/*
+	Hessian2Parser::long2
+*/
+static PHP_METHOD(Hessian2Parser, long2)
+{
+	ulong code, num, res;
+	zval *self, *read_str;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		 return (($num - 0xf8) << 8) + $this->readNum();
+	*/ 
+
+	
+	hessian2_parser_read(self, 1, read_str);
+	res = ((num - 0xf8) << 8) + Z_STRVAL_P(read_str)[0];
+
+	RETURN_LONG(res);
+}
+
+/*
+	Hessian2Parser::long3
+*/
+static PHP_METHOD(Hessian2Parser, long3)
+{
+	ulong code, num, res;
+	zval *self, *read1, *read2;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		 return ((ord($code) - 0x3c) << 16)
+            + ($this->readNum() << 8)
+            + $this->readNum();
+	*/ 
+
+	
+	hessian2_parser_read(self, 1, read1);
+	hessian2_parser_read(self, 1, read2);
+	res = ((code - 0x3c) << 16) + Z_STRVAL_P(read1)[0] << 8 + Z_STRVAL_P(read1)[2];
+
+	RETURN_LONG(res);
+}
+
+
+/*
+	Hessian2Parser::long32
+*/
+static PHP_METHOD(Hessian2Parser, long32)
+{
+	ulong code, num, res;
+	zval *self, *read1, *read2, *read3, *read4;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		  return ($this->readNum() << 24) +
+            ($this->readNum() << 16) +
+            ($this->readNum() << 8) +
+            $this->readNum();
+	*/ 
+
+	
+	hessian2_parser_read(self, 1, read1);
+	hessian2_parser_read(self, 1, read2);
+	hessian2_parser_read(self, 1, read3);
+	hessian2_parser_read(self, 1, read4);
+	res = (Z_STRVAL_P(read1)[0] << 24 + Z_STRVAL_P(read2)[0] << 16 + Z_STRVAL_P(read3)[0] << 8 + Z_STRVAL_P(read4)[0];
+
+	RETURN_LONG(res);
+}
+
+
+/*
+	Hessian2Parser::long64
+*/
+static PHP_METHOD(Hessian2Parser, long64)
+{
+	ulong code, num, res;
+	zval *self, *read1, *read2, *read3, *read4, *read5, *read6, *read7, *read8;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		  return ($this->readNum() << 24) +
+            ($this->readNum() << 16) +
+            ($this->readNum() << 8) +
+            $this->readNum();
+	*/ 
+
+	
+	hessian2_parser_read(self, 1, read1);
+	hessian2_parser_read(self, 1, read2);
+	hessian2_parser_read(self, 1, read3);
+	hessian2_parser_read(self, 1, read4);
+	hessian2_parser_read(self, 1, read5);
+	hessian2_parser_read(self, 1, read6);
+	hessian2_parser_read(self, 1, read7);
+	hessian2_parser_read(self, 1, read8);
+	
+	res = (Z_STRVAL_P(read1)[0] << 56 + Z_STRVAL_P(read2)[0] << 48 + Z_STRVAL_P(read3)[0] << 40 + Z_STRVAL_P(read4)[0] << 32
+		+ (Z_STRVAL_P(read5)[0] << 24 + Z_STRVAL_P(read6)[0] << 16 + Z_STRVAL_P(read7)[0] << 8 + Z_STRVAL_P(read8)[0];
+
+	RETURN_LONG(res);
+}
+
+/*
+	Hessian2Parser::parseNull
+*/
+static PHP_METHOD(Hessian2Parser, parseNull)
+{
+	ulong code, num;
+
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	
+	RETURN_NULL;
+}
+
+
+/*
+	Hessian2Parser::reserved
+*/
+static PHP_METHOD(Hessian2Parser, reserved)
+{
+	ulong code, num;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	
+	zend_throw_exception(hessian_parsing_exception_ce, sprintf("Code %l reserved", code), 1 TSRMLS_DC);
+}
+
+/*
+	Hessian2Parser::readUTF8Bytes
+*/
+static PHP_METHOD(Hessian2Parser, readUTF8Bytes)
+{
+	ulong len;
+	zval *self,;
+	zval string;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &len)) {
+		return;
+	}
+
+	self = getThis();
+	hessian2_parser_read_utf8_bytes(self, len, &string);
+	
+	RETURN_STRING(Z_STRVAL_P(string), 1);
+}
+
+/*
+	Hessian2Parser::string0
+*/
+static PHP_METHOD(Hessian2Parser, string0)
+{
+	ulong code, num;
+	zval *self, *read_str;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		return $this->readUTF8Bytes($num);
+	*/ 
+
+	hessian2_parser_read_utf8_bytes(self, num, &read_str);
+	RETURN_ZVAL(&read_str, 1);
+}
+
+
+/*
+	Hessian2Parser::string1
+*/
+static PHP_METHOD(Hessian2Parser, string1)
+{
+	ulong code, num, len;
+	zval *self, *read_str;
+	zval read_bytes;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		$len = (($num - 0x30) << 8) + ord($this->read());
+        	return $this->readUTF8Bytes($len);
+	*/ 
+
+	hessian2_parser_read(self, 1, read_str);
+	len = (num - 0x30) << 8 + Z_STRVAL_P(read_str)[0];
+	hessian2_parser_read_utf8_bytes(self, len, &read_bytes);
+	RETURN_ZVAL(&read_bytes, 1);
+}
+
+/*
+	Hessian2Parser::stringLongData
+*/
+static PHP_METHOD(Hessian2Parser, stringLongData)
+{
+	ulong code, num, len;
+	zval *self, *read_str, *tmp_len;
+	zval function_name, param1;
+	zval *params[2];
+	zval *z_len;
+	zval string;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		$tempLen = unpack('n', $this->read(2));
+        $len     = $tempLen[1];
+        return $this->readUTF8Bytes($len);
+	*/ 
+
+	hessian2_parser_read(self, 2, read_str);
+	ZVAL_STRING(&function_name, "unpack", 1);
+	ZVAL_STRING(&param1, "n", 1);
+	params[0] = &param1;
+	params[1] = read_str;
+
+	call_user_function(EG(function_table), NULL, &function_name, tmp_len, 2, params TSRMLS_DC);
+	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(tmp_len), "1", 1, &z_len)){
+		RETURN_FALSE;
+	}
+
+	len = Z_LVAL_P(tmp_len);
+	hessian2_parser_read_utf8_bytes(self, len, &string);
+	
+	RETURN_ZVAL(&string, 1);
+}
+
+/*
+	Hessian2Parser::stringLong
+*/
+static PHP_METHOD(Hessian2Parser, stringLong)
+{
+	ulong code, num, len;
+	zval *z_code;
+	zval *self, *read_str;
+	zend_bool final;
+	char *data;
+	zval z_string;
+	zval function_name, param_string;
+	zval *params[2];
+	char *buf;
+	
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zl", &z_code, &num)) {
+		return;
+	}
+	self = getThis();
+	/*
+		 do {
+            $final = $num != 0x52;
+            if ($num == 0x52 || $num == 0x53)
+                $data .= $this->stringLongData();
+            else
+                $data .= $this->parse($code, 'string');
+            if (!$final) {
+                $code = $this->read();
+                $num  = ord($code);
+            }
+        } while (!$final);
+        return $data;
+	*/ 
+
+	final = 1;
+	ZVAL_STRING(function_name, "parse", 1);
+	ZVAL_STRING(&param_string, "string", 1);
+	do{
+		final = num != 0x52;
+		if ( (num == 0x52) || (num == 0x53) ){
+			hessian2_parser_string_long_data(self, &z_string);
+			if (!data){
+				data = Z_STRVAL_P(z_string);
+			}else{
+				buf = Z_STRVAL_P(z_string);
+				data = strcat(data, buf);
+			}
+		}else{
+			params[0] = z_code;
+			params[1] = &param_string;
+			call_user_function(NULL, self, &function_name, z_string, 2, params TSRMLS_DC);
+			if (!data){
+				data = Z_STRVAL_P(z_string);
+			}else{
+				buf = Z_STRVAL_P(z_string);
+				data = strcat(data, buf);
+			}
+		}
+
+		if (!final){
+			hessian2_parser_read(self, 1, z_code);
+			num = Z_STRVAL_P(z_code)[0];
+		}
+	}while(!final);
+}
+
+
+/*
+	Hessian2Parser::vlenList
+*/
+static PHP_METHOD(Hessian2Parser, vlenList)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	zval *type, *refmap, array, *obj_list;
+	zval *z_code;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	
+	/*
+	   $type  = $this->parseType();
+        $array = array();
+        $this->refmap->incReference();
+	*/
+
+	ZVAL_STRING(function_name, "parseType", 1);
+	call_user_function(NULL, &self, &function_name, type, 0,params TSRMLS_DC);
+	
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	 while ($code != 'Z') {
+            $code = $this->read();
+            if ($code != 'Z') {
+                $item = $this->parse($code);
+                if (HessianRef::isRef($item))
+                    $array[] = &$this->refmap->objectlist[$item->index];
+                else
+                    $array[] = $item;
+                //$array[] = $this->parse($code);
+            }
+        }
+        return $array;
+        */
+
+	zval *item, *is_ref;
+	zval function_name1;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	while(code != 'Z'){
+		hessian2_parser_read(self, 1, z_code);
+		if (Z_STRVAL_P(z_code)[0] != 'Z'){
+			params[0] = z_code;
+			call_user_function(NULL, self, &function_name, item, 1, params TSRMLS_DC);
+
+
+			params[0] = item;
+			call_user_function(NULL, self, &function_name, is_ref, 1, params TSRMLS_DC);
+
+			if (i_zend_is_true(item)){
+				zval *index, *node;
+				index = zend_read_property(NULL, item, "index", 5, 1 TSRMLS_DC);
+				if (SUCCESS == zend_hash_find(Z_ARRVAL_P(obj_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+					zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &node, sizeof(zval**), NULL);
+				}
+			}else{
+				zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &item, sizeof(zval**), NULL);
+			}
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+
+/*
+	Hessian2Parser::flenList
+*/
+static PHP_METHOD(Hessian2Parser, flenList)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	zval *len;
+	zval *type, *refmap, array, *obj_list;
+	zval *z_code;
+	zval z_null, z_str_integer;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	
+	/*
+	  $len   = $this->parse(null, 'integer');
+        $array = array();
+        $this->refmap->incReference();
+        $this->refmap->objectlist[] = &$array;
+       
+        return $array;
+	*/
+
+	ZVAL_STRING(function_name, "parse", 1);
+	Z_TYPE(z_null) = IS_NULL;
+	Z_STRVAL(z_str_integer) = "integer";
+	Z_STRLEN(z_str_integer) = strlen("integer")-1;
+	params[0] = &z_null;
+	params[1] = &z_str_integer;
+	
+	call_user_function(NULL, &self, &function_name, len, 2,params TSRMLS_DC);
+	
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	 for ($i = 0; $i < $len; $i++) {
+            $item = $this->parse();
+            if (HessianRef::isRef($item))
+                $array[] = &$this->refmap->objectlist[$item->index];
+            else
+                $array[] = $item;
+            //$array[] = $this->parse();
+        }
+        return $array;
+        */
+
+	zval *item, *is_ref;
+	zval function_name1;
+	int i;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	for(i=0; i<Z_LVAL_P(len); i++){
+		call_user_function(NULL, self, &function_name, item, 0, params TSRMLS_DC);
+
+
+		params[0] = item;
+		call_user_function(NULL, self, &function_name, is_ref, 1, params TSRMLS_DC);
+
+		if (i_zend_is_true(item)){
+			zval *index, *node;
+			index = zend_read_property(NULL, item, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(obj_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &node, sizeof(zval**), NULL);
+			}
+		}else{
+			zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &item, sizeof(zval**), NULL);
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+/*
+	Hessian2Parser::vlenUntypedList
+*/
+static PHP_METHOD(Hessian2Parser, vlenUntypedList)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	zval *type, *refmap, array, *obj_list;
+	zval *z_code;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	
+	/*
+	   $type  = $this->parseType();
+        $array = array();
+        $this->refmap->incReference();
+	*/
+
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	 while ($code != 'Z') {
+            $code = $this->read();
+            if ($code != 'Z') {
+                $item = $this->parse($code);
+                if (HessianRef::isRef($item))
+                    $array[] = &$this->refmap->objectlist[$item->index];
+                else
+                    $array[] = $item;
+                //$array[] = $this->parse($code);
+            }
+        }
+        return $array;
+        */
+
+	zval *item, *is_ref;
+	zval function_name1;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	while(code != 'Z'){
+		hessian2_parser_read(self, 1, z_code);
+		if (Z_STRVAL_P(z_code)[0] != 'Z'){
+			params[0] = z_code;
+			call_user_function(NULL, self, &function_name, item, 1, params TSRMLS_DC);
+
+
+			params[0] = item;
+			call_user_function(NULL, self, &function_name, is_ref, 1, params TSRMLS_DC);
+
+			if (i_zend_is_true(item)){
+				zval *index, *node;
+				index = zend_read_property(NULL, item, "index", 5, 1 TSRMLS_DC);
+				if (SUCCESS == zend_hash_find(Z_ARRVAL_P(obj_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+					zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &node, sizeof(zval**), NULL);
+				}
+			}else{
+				zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &item, sizeof(zval**), NULL);
+			}
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+
+/*
+	Hessian2Parser::flenUntypedList
+*/
+static PHP_METHOD(Hessian2Parser, flenUntypedList)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	zval *len;
+	zval *type, *refmap, array, *obj_list;
+	zval *z_code;
+	zval z_null, z_str_integer;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	
+	/*
+	  $len   = $this->parse(null, 'integer');
+        $array = array();
+        $this->refmap->incReference();
+        $this->refmap->objectlist[] = &$array;
+       
+        return $array;
+	*/
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	 for ($i = 0; $i < $len; $i++) {
+            $item = $this->parse();
+            if (HessianRef::isRef($item))
+                $array[] = &$this->refmap->objectlist[$item->index];
+            else
+                $array[] = $item;
+            //$array[] = $this->parse();
+        }
+        return $array;
+        */
+
+	zval *item, *is_ref;
+	zval function_name1;
+	int i;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	for(i=0; i<Z_LVAL_P(len); i++){
+		call_user_function(NULL, self, &function_name, item, 0, params TSRMLS_DC);
+
+
+		params[0] = item;
+		call_user_function(NULL, self, &function_name, is_ref, 1, params TSRMLS_DC);
+
+		if (i_zend_is_true(item)){
+			zval *index, *node;
+			index = zend_read_property(NULL, item, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(obj_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &node, sizeof(zval**), NULL);
+			}
+		}else{
+			zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &item, sizeof(zval**), NULL);
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+
+/*
+	Hessian2Parser::directListUntyped
+*/
+static PHP_METHOD(Hessian2Parser, directListUntyped)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	ulong len;
+	zval *type, *refmap, array, *obj_list;
+	zval *z_code;
+	zval z_null, z_str_integer;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	len = code - 0x78;
+	/*
+	  $len   = $this->parse(null, 'integer');
+        $array = array();
+        $this->refmap->incReference();
+        $this->refmap->objectlist[] = &$array;
+       
+        return $array;
+	*/
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	 for ($i = 0; $i < $len; $i++) {
+            $item = $this->parse();
+            if (HessianRef::isRef($item))
+                $array[] = &$this->refmap->objectlist[$item->index];
+            else
+                $array[] = $item;
+            //$array[] = $this->parse();
+        }
+        return $array;
+        */
+
+	zval *item, *is_ref;
+	zval function_name1;
+	int i;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	for(i=0; i<len; i++){
+		call_user_function(NULL, self, &function_name, item, 0, params TSRMLS_DC);
+
+
+		params[0] = item;
+		call_user_function(NULL, self, &function_name, is_ref, 1, params TSRMLS_DC);
+
+		if (i_zend_is_true(item)){
+			zval *index, *node;
+			index = zend_read_property(NULL, item, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(obj_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &node, sizeof(zval**), NULL);
+			}
+		}else{
+			zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &item, sizeof(zval**), NULL);
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+
+/*
+	Hessian2Parser::parseType
+*/
+static PHP_METHOD(Hessian2Parser, parseType)
+{
+	zval *self, *type;
+	zval msg;
+	zval function_name, z_null, param1;
+	zval *params[2];
+
+	
+	self = getThis();
+	/*
+		 $this->logMsg('Parsing type');
+        $type = $this->parse(null, 'string,integer');
+      
+	*/ 
+
+	ZVAL_STRING(msg, "Parsing type", 1);
+	ZVAL_STRING(function_name, "parse", 1);
+	Z_TYPE(z_null) = IS_NULL;
+	ZVAL_STRING(function_name, "string,integer", 1);
+	params[0] = &z_null;
+	params[1] = &param1;
+
+	call_user_function(NULL, self, &function_name, type, 2, params TSRMLS_DC);
+
+	/*
+	  if (is_integer($type)) {
+            $index = $type;
+            if (!isset($this->refmap->reflist[$index]))
+                throw new HessianParsingException("Reference index $index not found");
+            return $this->refmap->typelist[$index];
+        }
+        $this->refmap->typelist[] = $type;
+        return $type;
+        */
+
+	if (Z_TYPE_P(type) == IS_LONG){
+		zval *node, *ref_map, *ref_list, *type_list;
+
+		ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+		ref_list = zend_read_property(NULL, ref_map, ZEND_STRL("reflist"), 1 TSRMLS_DC);
+
+		if (zend_hash_find(Z_ARRVAL_P(ref_list), Z_STRVAL_P(type), Z_STRLEN_P(type), &node) != SUCCESS){
+			zend_throw_exception(hessian_parsing_exception_ce, sprintf("Reference index %s not found", Z_STRVAL_P(type))
+				, 0 TSRMLS_DC);
+		}
+		type_list = zend_read_property(NULL, ref_map, ZEND_STRL("typelist"), 1 TSRMLS_DC);
+		if (Z_TYPE_P(type_list) != IS_ARRAY){
+			array_init_size(type_list, 1);
+		}
+		zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), &type, sizeof(zval **), NULL);
+	}
+
+	RETURN_ZVAL(type, 1);
+}
+
+
+/*
+	Hessian2Parser::untypedMap
+*/
+static PHP_METHOD(Hessian2Parser, untypedMap)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	ulong len;
+	zval *type, *refmap, array, *obj_list, *ref_list;
+	zval *z_code;
+	zval z_null, z_str_integer;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	len = code - 0x78;
+	/*
+	  $len   = $this->parse(null, 'integer');
+        $array = array();
+        $this->refmap->incReference();
+        $this->refmap->objectlist[] = &$array;
+       
+        return $array;
+	*/
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	ref_list = zend_read_property(obj_list, ZEND_STRL("reflist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(ref_list) != IS_ARRAY){
+		array_init_size(ref_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	while ($code != 'Z') {
+            $key   = $this->parse($code);
+            $value = $this->parse();
+            if (HessianRef::isRef($key)) $key = &$this->objectlist->reflist[$key->index];
+            if (HessianRef::isRef($value)) $value = &$this->objectlist->reflist[$value->index];
+
+            $map[$key] = $value;
+            if ($code != 'Z')
+                $code = $this->read();
+        }
+        */
+	zval *item, *key, *value;
+	zval function_name1;
+	zval *z_code;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	while(code != 'Z'){
+		zval *index, *node;
+		
+		params[0] = z_code;
+		call_user_function(NULL, self, &function_name, key, 1, params TSRMLS_DC);
+		call_user_function(NULL, self, &function_name, value, 0, params TSRMLS_DC);
+
+		params[0] = key;
+		call_user_function(NULL, key, &function_name1, item, 1, params TSRMLS_DC);
+		
+		if (i_zend_is_true(item)){
+			index = zend_read_property(NULL, key, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(ref_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), &node, sizeof(zval**), NULL);
+			}
+		}
+
+		call_user_function(NULL, value, &function_name1, item, 1, params TSRMLS_DC);
+		
+		if (i_zend_is_true(item)){
+			index = zend_read_property(NULL, value, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(ref_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), &node, sizeof(zval**), NULL);
+			}
+		}
+
+		/*
+		$map[$key] = $value;
+            	if ($code != 'Z')
+                $code = $this->read();
+                */
+
+		zend_hash_add(Z_ARRVAL_P(array), Z_STRVAL_P(key), Z_STRLEN_P(key), &value, sizeof(zval **), NULL);
+		if (code != 'Z'){
+			hessian2_parser_read(self, 1, z_code);
+			code = Z_LVAL_P(code);
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+
+/*
+	Hessian2Parser::typedMap
+*/
+static PHP_METHOD(Hessian2Parser, typedMap)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	ulong len;
+	zval *type, *refmap, array, *obj_list, *ref_list;
+	zval *z_code;
+	zval z_null, z_str_integer;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+	len = code - 0x78;
+	/*
+	  $len   = $this->parse(null, 'integer');
+        $array = array();
+        $this->refmap->incReference();
+        $this->refmap->objectlist[] = &$array;
+       
+        return $array;
+	*/
+	refmap = zend_read_property(self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "incReference", 1);
+	call_user_function(NULL, &refmap, &function_name, NULL, 0, params TSRMLS_DC);
+
+
+	// $this->refmap->objectlist[] = &$array;
+	array_init_size(&array, 0);
+	obj_list = zend_read_property(self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(obj_list) != IS_ARRAY){
+		array_init_size(obj_list, 1);
+	}
+	ref_list = zend_read_property(obj_list, ZEND_STRL("reflist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(ref_list) != IS_ARRAY){
+		array_init_size(ref_list, 1);
+	}
+	//todo:reference 
+	zend_hash_next_index_insert(Z_ARRVAL_P(obj_list), &array, sizeof(zval**), NULL);
+
+	/*
+	while ($code != 'Z') {
+            $key   = $this->parse($code);
+            $value = $this->parse();
+            if (HessianRef::isRef($key)) $key = &$this->objectlist->reflist[$key->index];
+            if (HessianRef::isRef($value)) $value = &$this->objectlist->reflist[$value->index];
+
+            $map[$key] = $value;
+            if ($code != 'Z')
+                $code = $this->read();
+        }
+        */
+	zval *item, *key, *value;
+	zval function_name1;
+	zval *z_code;
+	
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	while(code != 'Z'){
+		zval *index, *node;
+		
+		params[0] = z_code;
+		call_user_function(NULL, self, &function_name, key, 1, params TSRMLS_DC);
+		call_user_function(NULL, self, &function_name, value, 0, params TSRMLS_DC);
+
+		params[0] = key;
+		call_user_function(NULL, key, &function_name1, item, 1, params TSRMLS_DC);
+		
+		if (i_zend_is_true(item)){
+			index = zend_read_property(NULL, key, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(ref_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), &node, sizeof(zval**), NULL);
+			}
+		}
+
+		call_user_function(NULL, value, &function_name1, item, 1, params TSRMLS_DC);
+		
+		if (i_zend_is_true(item)){
+			index = zend_read_property(NULL, value, "index", 5, 1 TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(ref_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &node)){
+				zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), &node, sizeof(zval**), NULL);
+			}
+		}
+
+		zend_hash_add(Z_ARRVAL_P(array), Z_STRVAL_P(key), Z_STRLEN_P(key), &value, sizeof(zval **), NULL);
+		if (code != 'Z'){
+			hessian2_parser_read(self, 1, z_code);
+			code = Z_LVAL_P(code);
+		}
+	}
+
+	RETURN_ZVAL(array, 1);
+}
+
+
+/*
+	Hessian2Parser::typeDefinition
+*/
+static PHP_METHOD(Hessian2Parser, typeDefinition)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	ulong len;
+	zval *type;
+	zval z_null, z_str_integer;
+	zval *num_fields, *class_def;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+
+	/*
+	 $type           = $this->parseType();
+        $numfields      = $this->parse(null, 'integer');
+	*/
+	ZVAL_STRING(function_name, "parseType", 1);
+	call_user_function(NULL, &self, &function_name, type, 0, params TSRMLS_DC);
+
+	ZVAL_STRING(function_name, "parse", 1);
+	Z_TYPE_P(z_null) = IS_NULL;
+	ZVAL_STRING(z_str_integer, "integer", 1);
+	params[0] = &z_null;
+	params[1] = &z_str_integer;
+	call_user_function(NULL, &self, &function_name, num_fields, 2, params TSRMLS_DC);
+
+	/*
+	     $classdef       = new HessianClassDef();
+        $classdef->type = $type;
+        */
+
+	object_init_ex(hessian_class_def_entry, class_def);
+	zend_update_property(self, ZEND_STRL("type"), type TSRMLS_DC);
+
+	
+	/*
+	 for ($i = 0; $i < $numfields; $i++) {
+            $classdef->props[] = $this->parse(null, 'string');
+        }
+        $this->refmap->addClassDef($classdef);
+        return $classdef;
+        */
+
+	int i;
+	zval *props;
+
+	ZVAL_STRING(z_str_integer, "string", 1);
+	ZVAL_STRING(&function_name, "parse", 1);
+	props = zend_read_property(NULL, class_def, ZEND_STRL("props"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(props) != IS_ARRAY){
+		array_init_size(props, 1);
+	}
+
+	params[0] = &z_null;
+	params[1] = &z_str_integer;
+	
+	for(i=0; i<Z_LVAL_P(num_fields); i++){
+		zval *node;
+		call_user_function(NULL, self, &function_name, node, 2, params TSRMLS_DC);
+		zend_hash_next_index_insert(Z_ARRVAL_P(props), &node, sizeof(zval **), NULL);
+	}
+
+	zval *ref_map;
+	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ZVAL_STRING(function_name, "addClassDef", 1);
+	params[0] = class_def;
+	call_user_function(NULL, self, &ref_map, NULL, 1, params TSRMLS_DC);
+
+	RETURN_ZVAL(class_def, 1);
+}
+
+/*
+	Hessian2Parser::objectInstance
+*/
+static PHP_METHOD(Hessian2Parser, objectInstance)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	zval *res;
+	zval z_null, z_str_integer;
+	zval *index;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+
+	/*
+	 $index = $this->parse(null, 'integer');
+        return $this->fillMap($index);
+	*/
+
+	ZVAL_STRING(function_name, "parse", 1);
+	Z_TYPE_P(z_null) = IS_NULL;
+	ZVAL_STRING(z_str_integer, "integer", 1);
+	params[0] = &z_null;
+	params[1] = &z_str_integer;
+	call_user_function(NULL, &self, &function_name, index, 2, params TSRMLS_DC);
+
+	ZVAL_STRING(function_name, "fillMap", 1);
+	params[0] = index;
+	call_user_function(NULL, &self, &function_name, res, 1, params TSRMLS_DC);
+
+	RETURN_ZVAL(res, 1);
+}
+
+
+
+/*
+	Hessian2Parser::objectDirect
+*/
+static PHP_METHOD(Hessian2Parser, objectDirect)
+{
+	ulong code, num;
+	zval *self;
+	zval function_name;
+	zval *params[2];
+	zval index, *res;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+		return;
+	}
+	self = getThis();
+
+	/*
+	$index = $num - 0x60;
+        return $this->fillMap($index);
+	*/
+	Z_TYPE(index) = IS_LONG;
+	Z_LVAL(index) = num - 0x60;
+
+	ZVAL_STRING(function_name, "fillMap", 1);
+	params[0] = index;
+	call_user_function(NULL, &self, &function_name, res, 1, params TSRMLS_DC);
+
+	RETURN_ZVAL(res, 1);
+}
+
+
+/*
+	Hessian2Parser::fillMap
+*/
+static PHP_METHOD(Hessian2Parser, fillMap)
+{
+	zval *self;
+	zval *index;
+	zval *ref_map, *class_list, *object_factory, *object_list;
+	zval *class_def, *local_type, *class_def_type, *obj;
+	zval function_name;
+	zval *params[2];
+	
+	/*
+	 if (!isset($this->refmap->classlist[$index]))
+            throw new HessianParsingException("Class def index $index not found");
+       */
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &index)) {
+		return;
+	}
+	if (Z_TYPE_P(index) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "index must be an string");
+		return;
+	}
+	self = getThis();
+	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(ref_map) != IS_OBJECT){
+		zend_throw_exception(hessian_parsing_exception_ce, "refmap is not an oject", 0 TSRMLS_DC);
+	}
+	class_list = zend_read_property(NULL, self, ZEND_STRL("classlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(ref_map) != IS_ARRAY){
+		zend_throw_exception(hessian_parsing_exception_ce, "classlist is not an array", 0 TSRMLS_DC);
+	}
+
+	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(class_list), Z_STRVAL_P(index), Z_STRLEN_P(index),  &class_def TSRMLS_DC)){
+		zend_throw_exception(hessian_parsing_exception_ce, sprintf("Class def index %s not found", Z_STRVAL_P(index)), 0 TSRMLS_DC);
+	}
+
+
+	/*
+	 	$localType = $this->typemap->getLocalType($classdef->type);
+        	$obj       = $this->objectFactory->getObject($localType);
+        */
+	class_def_type = zend_read_property(NULL, class_def, ZEND_STRL("type"), 1 TSRMLS_DC);
+	ZVAL_STRING(&function_name, "getLocalType", 1);
+	params[0] = class_def_type;
+	call_user_function(NULL, &type_map, &function_name, local_type, 1, params TSRMLS_DC);
+
+	object_factory = zend_read_property(NULL, self, ZEND_STRL("objectFactory"), 1 TSRMLS_DC);
+	ZVAL_STRING(&function_name, "getObject", 1);
+	params[0] = local_type;
+	call_user_function(NULL, &object_factory, &function_name, obj, 1, params TSRMLS_DC);
+
+
+	/*
+		$this->refmap->incReference();
+        	$this->refmap->objectlist[] = $obj;
+        */
+    ZVAL_STRING(&function_name, "incReference", 1);
+	call_user_function(NULL, &ref_map, &function_name, obj, 0, params TSRMLS_DC);
+
+	object_list = zend_read_property(NULL, ref_map, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(object_list) != IS_ARRAY){
+		array_init_size(object_list, 2);
+	}
+	zend_hash_next_index_insert(Z_ARRVAL_P(object_list), &obj, sizeof(zval**), NULL);
+
+	/*
+		foreach ($classdef->props as $prop) {
+	            $item = $this->parse();
+	            if (HessianRef::isRef($item))
+	                $item = &$this->refmap->objectlist[$item->index];
+	            $obj->$prop = $item;
+	        }
+
+	        return $obj;
+        */
+    zval *props;
+	HashPosition *pos;
+	zval function_name1;
+	zval *src_entry, *item;
+	zval *is_ref;
+	
+	
+	props = zend_read_property(NULL, class_def, ZEND_STRL("props"), 1 TSRMLS_DC);
+
+	ZVAL_STRING(&function_name, "parse", 1);
+	ZVAL_STRING(&function_name1, "HessianRef::isRef", 1);
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(props), &pos);
+	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(props), (void **)&src_entry, &pos) == SUCCESS) {
+		call_user_function(NULL, &self, &function_name, item, 0, params TSRMLS_DC);
+		params[0] = item;
+		call_user_function(NULL, &self, &function_name1, is_ref, 1, params TSRMLS_DC);
+		if (i_zend_is_true(is_ref)){
+			zval *index, *tmp;
+			index = zend_read_property(NULL,  item, ZEND_STRL("index"), 1, TSRMLS_DC);
+			if (SUCCESS == zend_hash_find(Z_ARRVAL_P(object_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &tmp)){
+				item = tmp;
+			}
+		}
+		zend_update_property(NULL, obj, Z_STRVAL_P(src_entry), Z_STRLEN_P(src_entry), item TSRMLS_DC);
+		zend_hash_move_forward_ex(Z_ARRVAL_P(props), &pos);
+	}
+
+	RETURN_ZVAL(obj, 1);
+}
+
+
+/*
+	Hessian2Parser::reference
+*/
+static PHP_METHOD(Hessian2Parser, reference)
+{
+	zval *self;
+	zval *index, *ref_map, *ref_list, *ref_list_index;
+	zval function_name, param_null, param_integer;
+	zval *params[2];
+	zval index, *res;
+
+	self = getThis();
+
+	/*
+	 $index = $this->parse(null, 'integer');
+        if (!isset($this->refmap->reflist[$index]))
+            throw new HessianParsingException("Reference index $index not found");
+        return $this->refmap->reflist[$index];
+	*/
+
+	Z_TYPE(param_null) = IS_NULL;
+	ZVAL_STRING(param_integer, "integer", 1);
+
+	ZVAL_STRING(function_name, "parse", 1);
+	params[0] = &param_null;
+	params[1] = &param_integer;
+
+	call_user_function(NULL, &self, &function_name, index, 2,  params TSRMLS_DC);
+	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_DC);
+	ref_list = zend_read_property(NULL, ref_map, ZEND_STRL("reflist"), 1 TSRMLS_DC);
+
+	if (zend_hash_find(Z_ARRVAL_P(ref_list), Z_STRVAL_P(index), Z_STRLEN_P(index), &ref_list_index) != SUCCESS){
+		zend_throw_exception(hessian_parsing_exception_ce, sprintf("Reference index %s not found", Z_STRVAL_P(index)), 0 TSRMLS_DC);
+	}
+
+	RETURN_ZVAL(ref_list_index, 1);
+}
+
+
 
 
 //Hessian2Parser functions
@@ -894,6 +2395,32 @@ const zend_function_entry hessian2_iterator_writer_functions[] = {
 	PHP_ME(Hessian2Parser, compactDate, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, double1, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, double2 arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, double4 arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, double64 arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, long1, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, long2, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, long3, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, long32, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, parseNull, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, reserved, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, string0, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, string1, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, stringLongData, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, stringLong, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, readUTF8Bytes, arginfo_hessian2_read_utf8_bytes, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, vlenList, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, vlenUntypedList, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, flenUntypedList, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, directListTyped, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, directListUntyped, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, parseType, arginfo_hessian2_parse_type, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, untypedMap, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, typedMap, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, typeDefinition, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, objectInstance, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, objectDirect, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, fillMap, arginfo_hessian2_fill_map, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, reference, arginfo_hessian2_reference, ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 
