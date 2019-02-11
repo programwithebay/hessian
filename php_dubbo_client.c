@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 
 
+/*
 zend_object_handlers dubbo_client_object_handlers;
 
 struct _dubbo_client_entity{
@@ -59,7 +60,6 @@ struct _dubbo_client_object {
 
 
 
-
 void dubbo_client_free_storage(void *object TSRMLS_DC)
 {
     dubbo_client_object *obj = (dubbo_client_object *)object;
@@ -87,25 +87,50 @@ zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC)
 
     return retval;
 }
+*/
 
 
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_construct, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, config) /* array */
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_set_connect_timeout, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_connect_timeout, 0, 0, 1)
 	ZEND_ARG_INFO(0, timeout) /* long */
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_call_service, 0, 0, 3)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_execute_timeout, 0, 0, 1)
+	ZEND_ARG_INFO(0, timeout) /* long */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_call_service, 0, 0, 3)
 	ZEND_ARG_INFO(0, serviceName) /* string serviceName */
 	ZEND_ARG_INFO(0, method) /* string method */
 	ZEND_ARG_INFO(0, params) /* array params */
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_set_log_callback, 0, 0, 3)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_log_callback, 0, 0, 1)
 	ZEND_ARG_INFO(0, callback) /* string serviceName */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_retries, 0, 0, 1)
+	ZEND_ARG_INFO(0, retries) /* string serviceName */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_group, 0, 0, 1)
+	ZEND_ARG_INFO(0, group) /* string serviceName */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_version, 0, 0, 1)
+	ZEND_ARG_INFO(0, version) /* string serviceName */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_timeout, 0, 0, 1)
+	ZEND_ARG_INFO(0, timeout) /* string serviceName */
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_dubo, 0, 0, 1)
+	ZEND_ARG_INFO(0, dubbo) /* string serviceName */
 ZEND_END_ARG_INFO()
 
 
@@ -163,7 +188,6 @@ static PHP_METHOD(DubboClient, __construct)
 	int fd;
 	int nread;
 	char buf[16384];	//max length is 16k
-	dubbo_client_entity *client_entity;
 	int error_code;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &array)) {
@@ -196,10 +220,11 @@ static PHP_METHOD(DubboClient, __construct)
 	ZVAL_STRING(&function_name, "DubboStorageFactory::create", 1);
 	params[0] = type;
 	params[1]= param;
-	//error_code = call_user_function(&(dubbo_service_class_entry->function_table), NULL, &function_name, storage_obj, 2, params TSRMLS_DC);
+
 	error_code = call_user_function(EG(function_table), NULL, &function_name, storage_obj, 2, params TSRMLS_DC);
 	if (SUCCESS !=  error_code){
-		php_error_docref(NULL, E_ERROR, "call function DubboService::create error");
+		php_error_docref(NULL, E_WARNING, "call function DubboService::create error");
+		return;
 	}
 	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("storage"),  storage_obj);
 	
@@ -243,22 +268,150 @@ static PHP_METHOD(DubboClient, __construct)
 
 
 /*
-setConnectTimeout
+	DubboClient::setExecuteTimeout
+*/
+static PHP_METHOD(DubboClient, setExecuteTimeout)
+{
+	zval* self=getThis();
+	zval *timeout;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &timeout)) {
+		return;
+	}
+
+	if (Z_TYPE_P(timeout) != IS_LONG){
+		php_error_docref(NULL, E_WARNING, "timeout must be a long");
+		return;
+	}
+
+	if (Z_LVAL_P(timeout) > 0){
+		zend_update_property(NULL, self, ZEND_STRL("executeTimeout"), timeout TSRMLS_CC);
+	}
+}
+
+/*
+	DubboClient::setConnectTimeout
 */
 static PHP_METHOD(DubboClient, setConnectTimeout)
 {
 	zval* self=getThis();
-	long timeout;
+	zval *timeout;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &timeout)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &timeout)) {
 		return;
 	}
 
-	dubbo_client_object *obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
-    obj->entity.connectTimeout = timeout;
+	if (Z_TYPE_P(timeout) != IS_LONG){
+		php_error_docref(NULL, E_WARNING, "timeout must be a long");
+		return;
+	}
 
-	return;
+	if (Z_LVAL_P(timeout) > 0){
+		zend_update_property(NULL, self, ZEND_STRL("connectTimeout"), timeout TSRMLS_CC);
+	}
 }
+
+
+/*
+	DubboClient::setRetries
+*/
+static PHP_METHOD(DubboClient, setRetries)
+{
+	zval* self=getThis();
+	zval  *retries;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &retries)) {
+		return;
+	}
+
+	if (Z_TYPE_P(retries) != IS_LONG){
+		php_error_docref(NULL, E_WARNING, "retries must be a long");
+		return;
+	}
+	if (Z_LVAL_P(retries) > 0){
+		zend_update_property(NULL, self, ZEND_STRL("retries"), retries TSRMLS_CC);
+	}
+}
+
+
+/*
+	DubboClient::setGroup
+*/
+static PHP_METHOD(DubboClient, setGroup)
+{
+	zval* self=getThis();
+	zval  *group;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &group)) {
+		return;
+	}
+
+	if (Z_TYPE_P(setGroup) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "group must be a string");
+		return;
+	}
+	zend_update_property(NULL, self, ZEND_STRL("group"), group TSRMLS_CC);
+}
+
+/*
+	DubboClient::setTimeout
+*/
+static PHP_METHOD(DubboClient, setTimeout)
+{
+	zval* self=getThis();
+	zval  *timeout;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &timeout)) {
+		return;
+	}
+
+	if (Z_TYPE_P(timeout) != IS_LONG){
+		php_error_docref(NULL, E_WARNING, "timeout must be a long");
+		return;
+	}
+	if (Z_LVAL_P(timeout) > 0){
+		zend_update_property(NULL, self, ZEND_STRL("timeout"), timeout TSRMLS_CC);
+	}
+}
+
+/*
+	DubboClient::setVersion
+*/
+static PHP_METHOD(DubboClient, setVersion)
+{
+	zval* self=getThis();
+	zval  *version;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &version)) {
+		return;
+	}
+
+	if (Z_TYPE_P(version) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "version must be a long");
+		return;
+	}
+	zend_update_property(NULL, self, ZEND_STRL("version"), version TSRMLS_CC);
+}
+
+
+/*
+	DubboClient::setDubbo
+*/
+static PHP_METHOD(DubboClient, setDubbo)
+{
+	zval* self=getThis();
+	zval  *dubbo;
+
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &dubbo)) {
+		return;
+	}
+
+	zend_update_property(NULL, self, ZEND_STRL("dubbo"), dubbo TSRMLS_CC);
+}
+
+
+
+
 
 /**
 set log callback
@@ -326,10 +479,12 @@ static PHP_METHOD(DubboClient, callService)
 	storage = zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("storage"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(storage) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "DubboClient::storage is not a object");
+		return;
 	}
 	//是否父子类关系
 	if (!instanceof_function_ex(zend_get_class_entry(storage), idubbo_storage_interface_entry, 0 TSRMLS_CC)){
 		php_error_docref(NULL, E_WARNING, "DubboClient::storage does not implements IDubboStorage");
+		return;
 	}
 
 	cls_service_ptr = &cls_service;
@@ -338,6 +493,7 @@ static PHP_METHOD(DubboClient, callService)
 	service_config = zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("serviceConfig"), 1 TSRMLS_DC);
 	if(Z_TYPE_P(service_config) != IS_ARRAY){
 		php_error_docref(NULL, E_WARNING, "DubboClient::serviceConfig is not an array");
+		return;
 	}
 	if (SUCCESS != zend_hash_find(HASH_OF(service_config), Z_STRVAL_P(arg_service_name),Z_STRLEN_P(arg_service_name), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "serviceConfig:%s is not set", Z_STRVAL_P(arg_service_name));
@@ -448,10 +604,16 @@ static PHP_METHOD(DubboClient, callService)
 
 
 const zend_function_entry hessian_functions[] = {
-	PHP_ME(DubboClient, __construct,		arginfo_hessian_construct,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, setConnectTimeout,		arginfo_hessian_set_connect_timeout,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, callService,		arginfo_hessian_call_service,		ZEND_ACC_PUBLIC)
-	PHP_ME(DubboClient, setLogCallback,		arginfo_hessian_set_log_callback,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, __construct,		arginfo_hessian_dubbo_client_construct,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setExecuteTimeout,		arginfo_hessian_dubbo_client_set_execute_timeout,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setConnectTimeout,		arginfo_hessian_dubbo_client_set_connect_timeout,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, callService,		arginfo_hessian_dubbo_client_call_service,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setLogCallback,		arginfo_hessian_dubbo_client_set_log_callback,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setRetries,		arginfo_hessian_dubbo_client_set_retries,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setGroup,		arginfo_hessian_dubbo_client_set_group,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setVersion,		arginfo_hessian_dubbo_client_set_version,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setTimeout,		arginfo_hessian_dubbo_client_set_timeout,		ZEND_ACC_PUBLIC)
+	PHP_ME(DubboClient, setDubbo,		arginfo_hessian_dubbo_client_set_dubbo,		ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

@@ -227,6 +227,18 @@ void hessian2_parser_string_long_data(self, zval *return_value)
 	Z_STRLEN_P(return_value) = Z_STRLEN(string);
 }
 
+//log msg
+void hessian2_parser_log_msg(zval *self, zval *msg){
+	zval *log;
+	
+	log = zend_read_property(NULL, self, ZEND_STRL("log"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(log) != IS_ARRAY){
+		array_init_size(log, 4);
+	}
+	zend_hash_next_index_insert(Z_ARRVAL_P(log), &msg, sizeof(zval**), NULL);
+	zend_update_property(NULL, self, ZEND_STRL("log"), log TSRMLS_DC);
+
+}
 
 /*
 	Hessian2Parser::__construct
@@ -330,13 +342,7 @@ static PHP_METHOD(Hessian2Parser, logMsg)
 		return;
 	}
 	self = getThis();
-	log = zend_read_property(NULL, self, ZEND_STRL("log"), 1 TSRMLS_DC);
-	if (Z_TYPE_P(log) != IS_ARRAY){
-		ALLOC_ZVAL(log);
-		array_init_size(log, 4);
-	}
-	zend_hash_next_index_insert(Z_ARRVAL_P(log), &msg, sizeof(zval**), NULL);
-	zend_update_property(NULL, self, ZEND_STRL("log"), log TSRMLS_DC);
+	hessian2_parser_log_msg(self, msg);
 }
 
 /*
@@ -2372,7 +2378,7 @@ static PHP_METHOD(Hessian2Parser, reference)
 
 
 //Hessian2Parser functions
-const zend_function_entry hessian2_iterator_writer_functions[] = {
+const zend_function_entry hessian2_writer_functions[] = {
 	PHP_ME(Hessian2Parser, __construct, arginfo_hessian2_parser_construct, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, setStream, arginfo_hessian2_parser_set_stream, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, setTypeMap, arginfo_hessian2_parser_set_type_map, ZEND_ACC_PUBLIC)

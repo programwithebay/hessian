@@ -132,9 +132,11 @@ void register_hessian_base_class(){
 	INIT_CLASS_ENTRY(ce_dubbo_client, "DubboClient", hessian_functions);
 	dubbo_client_class_entry = zend_register_internal_class(&ce_dubbo_client TSRMLS_CC);
 
+	/*
 	dubbo_client_class_entry->create_object = dubbo_client_create_handler;
-    memcpy(&dubbo_client_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-    dubbo_client_object_handlers.clone_obj = NULL;
+      	memcpy(&dubbo_client_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+    	dubbo_client_object_handlers.clone_obj = NULL;
+     */
 	
 	
 	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("storage"),  ZEND_ACC_PROTECTED TSRMLS_CC);
@@ -290,6 +292,47 @@ void register_hessian_ext_class(){
 	ALLOC_ZVAL(pow32);
 	Z_LVAL_P(pow32,  4294967296);
 	zend_declare_class_constant(hessian_util_entry, "pow32", sizeof("pow32")-1, pow32 ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	//Hessian2Writer
+	zend_class_entry ce_hessian2_writer;
+	INIT_CLASS_ENTRY(ce_hessian2_writer, "Hessian2Writer", hessian2_writer_functions);
+	hessian2_writer_entry =  zend_register_internal_class(&ce_hessian2_writer TSRMLS_CC);
+	zend_declare_property_null(hessian2_writer_entry, "refmap", sizeof("refmap")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_writer_entry, "typemap", sizeof("typemap")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_writer_entry, "logMsg", sizeof("logMsg")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_writer_entry, "options", sizeof("options")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_writer_entry, "filterContainer", sizeof("filterContainer")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	
+	//Hessian2IteratorWriter
+	zend_class_entry ce_hessian2_iterator_writer, ce_hessian2_service_parser, ce_hessian2_parser;
+	INIT_CLASS_ENTRY(ce_hessian2_iterator_writer, "Hessian2IteratorWriter", hessian2_iterator_writer_functions);
+	hessian2_iterator_writer_entry =  zend_register_internal_class(&ce_hessian2_iterator_writer TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "usetype", sizeof("usetype")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+
+	//Hessian2Parser
+	INIT_CLASS_ENTRY(ce_hessian2_parser, "Hessian2Parser", hessian2_parser_functions);
+	hessian2_parser_entry =  zend_register_internal_class(&ce_hessian2_parser TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "resolver", sizeof("resolver")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "stream", sizeof("stream")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "refmap", sizeof("refmap")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "typemap", sizeof("typemap")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "log", sizeof("log")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "objectFactory", sizeof("objectFactory")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "options", sizeof("options")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian2_iterator_writer_entry, "filterContainer", sizeof("filterContainer")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	
+	//Hessian2ServiceParser
+	INIT_CLASS_ENTRY(ce_hessian2_service_parser, "Hessian2ServiceParser", hessian2_service_parser_functions);
+	hessian2_service_parser_entry =  zend_register_internal_class_ex(&ce_hessian2_service_parser, hessian2_parser_entry, NULL TSRMLS_CC);
+
+	//Hessian2ServiceWriter
+	zend_class_entry ce_hessian2_service_writer;
+	INIT_CLASS_ENTRY(ce_hessian2_service_writer, "Hessian2ServiceWriter", hessian2_service_writer_functions);
+	hessian2_service_writer_entry =  zend_register_internal_class_ex(&ce_hessian2_service_writer, hessian2_writer_entry, NULL TSRMLS_CC);
+
+	
+	
 }
 
 
