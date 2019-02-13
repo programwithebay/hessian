@@ -35,7 +35,7 @@ ZEND_END_ARG_INFO()
 zend_class_entry *hessian_options_entry;
 
 //HessianOptions property
-static const char* hessian_options_property[18] = [
+static const char* hessian_options_property[18] = {
 	"version",
 	"transport",
 	"transportOptions",
@@ -54,15 +54,18 @@ static const char* hessian_options_property[18] = [
 	"writeFilters",
 	"before",
 	"after"
-];
+};
 
 //from array
-void hessian_options_from_array(zval *self, array){
+void hessian_options_from_array(zval *self, zval * array){
 	int i;
+	zval *array_value;
+	
 	for(i=0; i<18;i++){
 		if (SUCCESS == zend_hash_find(Z_ARRVAL_P(array), hessian_options_property[i]
-			, strlen(hessian_options_property[i]) - 1, array_value)){
-			zend_update_property(hessian_options_entry, self, hessian_options_property[i], strlen(hessian_options_property[i])-1, *value_ptr TSRMLS_DC);
+			, strlen(hessian_options_property[i]) - 1, &array_value)){
+			zend_update_property(hessian_options_entry, self, hessian_options_property[i]
+				, strlen(hessian_options_property[i])-1, array_value TSRMLS_DC);
 		}
 	}
 }
@@ -116,7 +119,7 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 	ALLOC_ZVAL(options);
 	object_init_ex(options, hessian_options_entry);
 	if (Z_TYPE_P(object) == IS_NULL){
-		RETURN_ZVAL(options, 0);
+		RETURN_ZVAL(options, 0, NULL);
 	}
 	/*
 	$options = new HessianOptions();
@@ -134,7 +137,7 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 	*/
 
 	if (instanceof_function(Z_OBJCE_P(object), hessian_options_entry)){
-		RETURN_ZVAL(object, 0);
+		RETURN_ZVAL(object, 0, NULL);
 	}else if (Z_TYPE_P(object) == IS_ARRAY){
 		hessian_options_from_array(options, object);
 	}else if (Z_TYPE_P(object) == IS_OBJECT){
@@ -142,7 +145,7 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 		hessian_options_from_array(options, object);
 	}
 
-	RETURN_ZVAL(options, 0);
+	RETURN_ZVAL(options, 0, NULL);
 }
 
 

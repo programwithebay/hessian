@@ -145,16 +145,16 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	INIT_ZVAL(*hessian2_service_writer);
 	object_init_ex(hessian2_service_writer, hessian2_service_writer_entry);
 	INIT_ZVAL(function_name);
-	ZVAL_STRING(function_name, "__construct", 1);
+	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = options;
 	call_user_function(NULL, &hessian2_service_writer, &function_name, NULL, 1, params TSRMLS_CC);
 
 
 	
 	ALLOC_ZVAL(time_arr_params1);
-	ZVAL_STRING(&time_arr_params1, "HessianDatetimeAdapter", 1);
+	ZVAL_STRING(time_arr_params1, "HessianDatetimeAdapter", 1);
 	ALLOC_ZVAL(time_arr_params2);
-	ZVAL_STRING(&time_arr_params2, "writeTime", 1);
+	ZVAL_STRING(time_arr_params2, "writeTime", 1);
 	ALLOC_ZVAL(time_arr);
 	array_init_size(time_arr, 2);
 	zend_hash_next_index_insert(Z_ARRVAL_P(time_arr), &time_arr_params1, sizeof(zval**), NULL);
@@ -166,10 +166,10 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	//add Iterator
 	ALLOC_ZVAL(iterator_arr_param1);
 	object_init_ex(iterator_arr_param1, hessian2_iterator_writer_entry);
-	ZVAL_STRING(function_name, "__construct", 1);
+	ZVAL_STRING(&function_name, "__construct", 1);
 	call_user_function(NULL, &iterator_arr_param1, &function_name, NULL, 0, params TSRMLS_CC);
 	ALLOC_ZVAL(iterator_arr_param1);
-	ZVAL_STRING(&iterator_arr_param1, "write", 1);
+	ZVAL_STRING(iterator_arr_param1, "write", 1);
 	ALLOC_ZVAL(iterator_arr);
 	array_init_size(iterator_arr, 2);
 	zend_hash_next_index_insert(Z_ARRVAL_P(iterator_arr), &iterator_arr_param1, sizeof(zval**), NULL);
@@ -519,7 +519,8 @@ static PHP_METHOD(HessianFactory, getTransport)
 	transports = zend_read_property(NULL, self, "transports", strlen("transports")-1, 1 TSRMLS_DC);
 	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(transports), Z_STRVAL_P(type), Z_STRLEN_P(type), (void**)&class)){
 		zend_throw_exception(ce_hessian_exception, sprintf("The transport of type %s cannot be found", Z_STRVAL_P(type))
-			, TSRMLS_DC);
+			,0 TSRMLS_DC);
+		return;
 	}
 
 	ce_class = zend_fetch_class(Z_STRVAL_P(class), Z_STRLEN_P(class), 0 TSRMLS_DC);

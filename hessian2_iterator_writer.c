@@ -21,7 +21,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
 
 
 //params
@@ -45,7 +45,7 @@ zend_class_entry *hessian2_iterator_writer_entry;
 
 
 //list header
-zval*[] hessian2_iterator_writer_list_header(zval *self, zval *writer, zval *type, zval *total)
+zval** hessian2_iterator_writer_list_header(zval *self, zval *writer, zval *type, zval *total)
 {
 	zval *res[2];
 	zval terminate;
@@ -73,11 +73,11 @@ zval*[] hessian2_iterator_writer_list_header(zval *self, zval *writer, zval *typ
 
 		if ( !((Z_TYPE_P(total) == IS_BOOL) && (0 == Z_BVAL_P(total))) ){
 			zval *write_type_res, *write_int_res;
-			ZVAL_STRING(function_name, "writeType", 1);
+			ZVAL_STRING(&function_name, "writeType", 1);
 			params[0] = type;
 			call_user_function(NULL, &writer, &function_name, write_type_res, 1, params TSRMLS_DC);
 
-			ZVAL_STRING(function_name, "writeInt", 1);
+			ZVAL_STRING(&function_name, "writeInt", 1);
 			params[0] = total;
 			call_user_function(NULL, &writer, &function_name, write_int_res, 1, params TSRMLS_DC);
 
@@ -88,7 +88,7 @@ zval*[] hessian2_iterator_writer_list_header(zval *self, zval *writer, zval *typ
 			stream[1 + Z_STRLEN_P(write_type_res) + Z_STRLEN_P(write_int_res) + 1] = 0;
 		}else{
 			zval *write_type_res;
-			ZVAL_STRING(function_name, "writeType", 1);
+			ZVAL_STRING(&function_name, "writeType", 1);
 			params[0] = type;
 			call_user_function(NULL, &writer, &function_name, write_type_res, 1, params TSRMLS_DC);
 
@@ -96,13 +96,13 @@ zval*[] hessian2_iterator_writer_list_header(zval *self, zval *writer, zval *typ
 			stream[0] = 55;
 			mempcy(stream+1, Z_STRVAL_P(write_type_res), Z_STRLEN_P(write_type_res));
 			stream[1 + Z_STRLEN_P(write_type_res) + 1] = 0;
-			Z_BVAL_P(&terminate, 1);
+			ZVAL_BOOL(&terminate, 1);
 		}
 	}else{
 		if ( !((Z_TYPE_P(total) == IS_BOOL) && (0 == Z_BVAL_P(total))) ){
 			zval *write_int_res;
 	
-			ZVAL_STRING(function_name, "writeInt", 1);
+			ZVAL_STRING(&function_name, "writeInt", 1);
 			params[0] = total;
 			call_user_function(NULL, &writer, &function_name, write_int_res, 1, params TSRMLS_DC);
 
@@ -115,14 +115,14 @@ zval*[] hessian2_iterator_writer_list_header(zval *self, zval *writer, zval *typ
 			stream[0] =57;
 			stream[1] = 0;
 			
-			Z_BVAL_P(&terminate, 1);
+			ZVAL_BOOL(&terminate, 1);
 		}
 	}
 
 	ALLOC_ZVAL(z_stream);
 	ZVAL_STRING(z_stream, stream, 0);
 	res[0] = z_stream;
-	res[1] = terminate;
+	res[1] = &terminate;
 }
 
 
@@ -137,7 +137,7 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 	zval *params[2];
 	zval total;
 	
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &list, &wrier)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &list, &writer)) {
 		return;
 	}
 	self = getThis();
@@ -147,8 +147,8 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 		$writer->refmap->objectlist[] = $list; 
 	*/
 	zval msg;
-	ZVAL_STRING(function_name, "logMsg", 1);
-	ZVAL_STRING(msg, "iterator writer", 1);
+	ZVAL_STRING(&function_name, "logMsg", 1);
+	ZVAL_STRING(&msg, "iterator writer", 1);
 	params[0] = &msg;
 
 	call_user_function(NULL, &writer, &function_name, NULL, 1, params TSRMLS_DC);
@@ -167,15 +167,15 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 
 
 	//$total = $this->getCount($list);
-	zend_class_entry ce_countable;
+	zend_class_entry *ce_countable;
 	
-	zend_fetch_class();
-	if (instanceof_function(Z_OBJCE_P(list)), ce_countable TSRMLS_DC)){
-		ZVAL_STRING(function_name, "count");
+	ce_countable = zend_fetch_class("Countable", strlen("Countable") -1, 0 TSRMLS_DC);
+	if (instanceof_function(Z_OBJCE_P(list), ce_countable TSRMLS_DC)){
+		ZVAL_STRING(&function_name, "count", 1);
 		params[0]= list;
 		call_user_function(EG(function_table), NULL, &function_name, &total, 1, params TSRMLS_DC);
 	}else{
-		ZEND_BOOL(total, 0);
+		ZVAL_BOOL(&total, 0);
 	}
 
 	/*
@@ -187,7 +187,7 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 
 	char *class;
 	zval z_class;
-	zend_uint class_len;
+	zend_uint class_name_len;
 	zval *type_map;
 	zval *type;
 	zval *mapped_type;
@@ -196,7 +196,7 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 	
 	zend_get_object_classname(list, &class, &class_name_len TSRMLS_CC);
 	type_map = zend_read_property(NULL, writer, ZEND_STRL("typemap"), 1 TSRMLS_DC);
-	ZVAL_STRING(function_name, "getRemoteType", 1);
+	ZVAL_STRING(&function_name, "getRemoteType", 1);
 	params[0] = &z_class;
 	call_user_function(NULL, &type_map, &function_name, type, 1, params TSRMLS_DC);
 	if (i_zend_is_true(type)){
@@ -207,12 +207,12 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 
 	//$islist = HessianUtils::isListIterate($list);
 	zval *is_list;
-	ZVAL_STRING(function_name, "HessianUtils::isListIterate", 1);
+	ZVAL_STRING(&function_name, "HessianUtils::isListIterate", 1);
 	params[0] = list;
 	call_user_function(EG(function_table), NULL, &function_name, is_list, 1, params TSRMLS_DC);
 
 	if (i_zend_is_true(is_list)){
-		zval *list_header_res[];
+		zval *list_header_res[8];
 		HashPosition *pos;
 		int add_len=0;
 		zval **arr_write_value;
@@ -232,7 +232,7 @@ static PHP_METHOD(Hessian2IteratorWriter, write)
 				$stream .= 'Z';
 		*/
 
-		list_header_res = hessian2_iterator_writer_list_header(self, writer, mapped_type, total);
+		list_header_res = hessian2_iterator_writer_list_header(self, writer, mapped_type, &total);
 		arr_write_value = pealloc(zend_hash_num_elements(Z_ARRVAL_P(list) * sizeof(zval*), 0);
 
 		ZVAL_STRING(function_name, "writeValue", 1);

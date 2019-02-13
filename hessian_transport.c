@@ -21,7 +21,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
 #include <curl/curl.h>
 #include <curl/easy.h>
 
@@ -46,161 +46,6 @@ zend_class_entry *hessian_curl_transport_entry;
 
 
 
-//set curl post fields
-void hessian_curl_transport_set_postfields(zval *zvalue, CURL *curl)
-{
-	if (Z_TYPE_PP(zvalue) == IS_ARRAY || Z_TYPE_PP(zvalue) == IS_OBJECT) {
-		zval			**current;
-		HashTable		 *postfields;
-		struct HttpPost  *first = NULL;
-		struct HttpPost  *last	= NULL;
-
-		postfields = HASH_OF(*zvalue);
-		if (!postfields) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't get HashTable in CURLOPT_POSTFIELDS");
-			return FAILURE;
-		}
-
-		for (zend_hash_internal_pointer_reset(postfields);
-			 zend_hash_get_current_data(postfields, (void **) &current) == SUCCESS;
-			 zend_hash_move_forward(postfields)
-		) {
-			char  *postval;
-			char  *string_key = NULL;
-			uint   string_key_len;
-			ulong  num_key;
-			int    numeric_key;
-
-			zend_hash_get_current_key_ex(postfields, &string_key, &string_key_len, &num_key, 0, NULL);
-
-			/* Pretend we have a string_key here */
-			if(!string_key) {
-				spprintf(&string_key, 0, "%ld", num_key);
-				string_key_len = strlen(string_key)+1;
-				numeric_key = 1;
-			} else {
-				numeric_key = 0;
-			}
-
-			if(Z_TYPE_PP(current) == IS_OBJECT && instanceof_function(Z_OBJCE_PP(current), curl_CURLFile_class TSRMLS_CC)) {
-				/* new-style file upload */
-				zval *prop;
-				char *type = NULL, *filename = NULL;
-
-				prop = zend_read_property(curl_CURLFile_class, *current, "name", sizeof("name")-1, 0 TSRMLS_CC);
-				if(Z_TYPE_P(prop) != IS_STRING) {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid filename for key %s", string_key);
-				} else {
-					postval = Z_STRVAL_P(prop);
-
-					if (php_check_open_basedir(postval TSRMLS_CC)) {
-						return 1;
-					}
-
-					prop = zend_read_property(curl_CURLFile_class, *current, "mime", sizeof("mime")-1, 0 TSRMLS_CC);
-					if(Z_TYPE_P(prop) == IS_STRING && Z_STRLEN_P(prop) > 0) {
-						type = Z_STRVAL_P(prop);
-					}
-					prop = zend_read_property(curl_CURLFile_class, *current, "postname", sizeof("postname")-1, 0 TSRMLS_CC);
-					if(Z_TYPE_P(prop) == IS_STRING && Z_STRLEN_P(prop) > 0) {
-						filename = Z_STRVAL_P(prop);
-					}
-					error = curl_formadd(&first, &last,
-									CURLFORM_COPYNAME, string_key,
-									CURLFORM_NAMELENGTH, (long)string_key_len - 1,
-									CURLFORM_FILENAME, filename ? filename : postval,
-									CURLFORM_CONTENTTYPE, type ? type : "application/octet-stream",
-									CURLFORM_FILE, postval,
-									CURLFORM_END);
-				}
-
-				if (numeric_key) {
-					efree(string_key);
-				}
-				continue;
-			}
-
-			SEPARATE_ZVAL(current);
-			convert_to_string_ex(current);
-
-			postval = Z_STRVAL_PP(current);
-
-			/* The arguments after _NAMELENGTH and _CONTENTSLENGTH
-			 * must be explicitly cast to long in curl_formadd
-			 * use since curl needs a long not an int. */
-			if (!ch->safe_upload && *postval == '@') {
-				char *type, *filename;
-				++postval;
-
-				php_error_docref("curl.curlfile" TSRMLS_CC, E_DEPRECATED, "The usage of the @filename API for file uploading is deprecated. Please use the CURLFile class instead");
-
-				if ((type = php_memnstr(postval, ";type=", sizeof(";type=") - 1, postval + Z_STRLEN_PP(current)))) {
-					*type = '\0';
-				}
-				if ((filename = php_memnstr(postval, ";filename=", sizeof(";filename=") - 1, postval + Z_STRLEN_PP(current)))) {
-					*filename = '\0';
-				}
-				/* open_basedir check */
-				if (php_check_open_basedir(postval TSRMLS_CC)) {
-					return FAILURE;
-				}
-				error = curl_formadd(&first, &last,
-								CURLFORM_COPYNAME, string_key,
-								CURLFORM_NAMELENGTH, (long)string_key_len - 1,
-								CURLFORM_FILENAME, filename ? filename + sizeof(";filename=") - 1 : postval,
-								CURLFORM_CONTENTTYPE, type ? type + sizeof(";type=") - 1 : "application/octet-stream",
-								CURLFORM_FILE, postval,
-								CURLFORM_END);
-				if (type) {
-					*type = ';';
-				}
-				if (filename) {
-					*filename = ';';
-				}
-			} else {
-				error = curl_formadd(&first, &last,
-									 CURLFORM_COPYNAME, string_key,
-									 CURLFORM_NAMELENGTH, (long)string_key_len - 1,
-									 CURLFORM_COPYCONTENTS, postval,
-									 CURLFORM_CONTENTSLENGTH, (long)Z_STRLEN_PP(current),
-									 CURLFORM_END);
-			}
-
-			if (numeric_key) {
-				efree(string_key);
-			}
-		}
-
-		SAVE_CURL_ERROR(ch, error);
-		if (error != CURLE_OK) {
-			return FAILURE;
-		}
-
-		if (Z_REFCOUNT_P(ch->clone) <= 1) {
-			zend_llist_clean(&ch->to_free->post);
-		}
-		zend_llist_add_element(&ch->to_free->post, &first);
-		error = curl_easy_setopt(curl, CURLOPT_HTTPPOST, first);
-
-	} else {
-#if LIBCURL_VERSION_NUM >= 0x071101
-		convert_to_string_ex(zvalue);
-		/* with curl 7.17.0 and later, we can use COPYPOSTFIELDS, but we have to provide size before */
-		error = curl_easy_setopt(ch->cp, CURLOPT_POSTFIELDSIZE, Z_STRLEN_PP(zvalue));
-		error = curl_easy_setopt(ch->cp, CURLOPT_COPYPOSTFIELDS, Z_STRVAL_PP(zvalue));
-#else
-		char *post = NULL;
-
-		convert_to_string_ex(zvalue);
-		post = estrndup(Z_STRVAL_PP(zvalue), Z_STRLEN_PP(zvalue));
-		zend_llist_add_element(&ch->to_free->str, &post);
-
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post);
-		error = curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, Z_STRLEN_PP(zvalue));
-#endif
-	}
-
-}
 
 /*
 	HessianCURLTransport::testAvailable
@@ -214,7 +59,7 @@ static PHP_METHOD(HessianCURLTransport, testAvailable)
 	*/
 
 	if (zend_hash_find(EG(function_table), "curl_init", strlen("curl_init"), (void **)&func) != SUCCESS){
-		zend_class_entry ce_exception;
+		zend_class_entry *ce_exception;
 
 		ce_exception = zend_fetch_class("Exception", strlen("Exception") - 1, 0 TSRMLS_DC);
 		zend_throw_exception(ce_exception, "You need to enable the CURL extension to use the curl transport", 0);
@@ -230,7 +75,7 @@ static PHP_METHOD(HessianCURLTransport, getMetadata)
 
 	self = getThis();
 	meta_data = zend_read_property(NULL, self, ZEND_STRL("metaData"), 1 TSRMLS_DC);
-	RETURN_ZVAL(meta_data, 1);
+	RETURN_ZVAL(meta_data, 1, NULL);
 }
 
 /*
@@ -275,24 +120,24 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 
 
 	array_init_size(&curl_options, 6);
-	zend_hash_add(Z_ARRVAL_P(curl_options), "10002", 5, &url, sizeof(zval**), NULL); //CURLOPT_URL
+	zend_hash_add(Z_ARRVAL(curl_options), "10002", 5, &url, sizeof(zval**), NULL); //CURLOPT_URL
 	p_curl_post = &curl_post;
-	zend_hash_add(Z_ARRVAL_P(curl_options), "47", 2, &p_curl_post, sizeof(zval**), NULL); //CURLOPT_POST
-	zend_hash_add(Z_ARRVAL_P(curl_options), "10015", 5, &data, sizeof(zval**), NULL); //CURLOPT_POSTFIELDS
+	zend_hash_add(Z_ARRVAL(curl_options), "47", 2, &p_curl_post, sizeof(zval**), NULL); //CURLOPT_POST
+	zend_hash_add(Z_ARRVAL(curl_options), "10015", 5, &data, sizeof(zval**), NULL); //CURLOPT_POSTFIELDS
 	p_curl_follow_location = &curl_follow_location;
-	ZVAL_BOOL(curl_follow_location, 1);
-	zend_hash_add(Z_ARRVAL_P(curl_options), "52", 2, &p_curl_follow_location, sizeof(zval**), NULL); //CURLOPT_FOLLOWLOCATION
+	ZVAL_BOOL(&curl_follow_location, 1);
+	zend_hash_add(Z_ARRVAL(curl_options), "52", 2, &p_curl_follow_location, sizeof(zval**), NULL); //CURLOPT_FOLLOWLOCATION
 
 	//CURLOPT_RETURNTRANSFER
-	p_curl_return_transfer = curl_return_transfer;
-	zend_hash_add(Z_ARRVAL_P(curl_options), "19913", 5, &p_curl_return_transfer, sizeof(zval**), NULL); 
+	p_curl_return_transfer = &curl_return_transfer;
+	zend_hash_add(Z_ARRVAL(curl_options), "19913", 5, &p_curl_return_transfer, sizeof(zval**), NULL); 
 
 	//CURLOPT_HTTPHEADER
-	array_init_size(curl_opt_header, 1);
+	array_init_size(&curl_opt_header, 1);
 	ZVAL_STRING(&curl_header_content_type, "Content-Type: application/binary", 1);
 	p_curl_header_content_type = &curl_header_content_type;
-	zend_hash_next_index_insert(Z_ARRVAL_P(curl_opt_header), &p_curl_header_content_type, sizeof(zval **), NULL);
-	zend_hash_add(Z_ARRVAL_P(curl_options), "10023", 5, &p_curl_opt_header, sizeof(zval**), NULL); 
+	zend_hash_next_index_insert(Z_ARRVAL(curl_opt_header), &p_curl_header_content_type, sizeof(zval **), NULL);
+	zend_hash_add(Z_ARRVAL(curl_options), "10023", 5, &p_curl_opt_header, sizeof(zval**), NULL); 
 	
 	/*
 	//c style function
@@ -358,31 +203,31 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 		}
 	*/
 
-	curl *result, *curl_info, curl_code_param, *curl_code, *curl_error;
-	ZVAL_STRING(function_name, "curl_exec");
+	zval *result, *curl_info, curl_code_param, *curl_code, *curl_error;
+	ZVAL_STRING(&function_name, "curl_exec", 1);
 	params[0] = ch;
 	call_user_function(EG(function_table), NULL, &function_name, result, 1, params TSRMLS_DC);
 
-	ZVAL_STRING(function_name, "curl_getinfo");
+	ZVAL_STRING(&function_name, "curl_getinfo", 1);
 	params[0] = ch;
 	call_user_function(EG(function_table), NULL, &function_name, curl_info, 1, params TSRMLS_DC);
-	zend_update_property(NULL, self, ZEND_STRL("metadata"), curl_info, 1, params TSRMLS_DC);
+	zend_update_property(NULL, self, ZEND_STRL("metadata"), curl_info TSRMLS_DC);
 
-	ZVAL_STRING(function_name, "curl_error");
+	ZVAL_STRING(&function_name, "curl_error", 1);
 	params[0] = ch;
 	call_user_function(EG(function_table), NULL, &function_name, curl_error, 1, params TSRMLS_DC);
 	
 	params[0] = ch;
-	ZVAL_STRING(curl_code_param, "2097154", 1);
+	ZVAL_STRING(&curl_code_param, "2097154", 1);
 	params[1] = &curl_code_param;
 	call_user_function(EG(function_table), NULL, &function_name, curl_code, 2, params TSRMLS_DC);
 
 	if (i_zend_is_true(curl_error)){
 		if (Z_TYPE_P(ch) == IS_RESOURCE){
-			zend_class_entry ce_excetpion;
+			zend_class_entry *ce_excetpion;
 
 			ce_excetpion = zend_fetch_class("Exception", strlen("Exception") - 1, 0);
-			ZVAL_STRING(function_name, "curl_close");
+			ZVAL_STRING(&function_name, "curl_close", 1);
 			params[0] = ch;
 			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
 			zend_throw_exception(ce_excetpion, sprintf("CURL transport error: %s", Z_STRVAL_P(curl_error)), 0 TSRMLS_DC);
@@ -406,7 +251,7 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 			params[0] = ch;
 			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
 		}
-		zend_class_entry ce_excetpion;
+		zend_class_entry *ce_excetpion;
 		ce_excetpion = zend_fetch_class("Exception", strlen("Exception") - 1, 0);
 		zend_throw_exception(ce_excetpion, sprintf("curl_exec error for url: %s", Z_STRVAL_P(url)), 0 TSRMLS_DC);
 	}
@@ -448,10 +293,15 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 			throw new Exception($msg);
 		*/
 		zval message, *p_message;
-		ZVAL_STRING(message, sprintf("Server error, returned HTTP code: %d Server sent:%s", Z_LVAL_P(curl_code)), Z_STRVAL_P(result));
-		zend_class_entry ce_excetpion;
+		char str_message[800];
+
+		//@todo:length is ok?
+		sprintf(str_message, "Server error, returned HTTP code: %d Server sent:%s"
+			, Z_LVAL_P(curl_code), Z_STRVAL_P(result));
+		ZVAL_STRING(&message, str_message, 1);
+		zend_class_entry *ce_excetpion;
 		ce_excetpion = zend_fetch_class("Exception", strlen("Exception") - 1, 0);
-		zend_throw_exception(ce_excetpion, Z_STRVAL_P(message), 0 TSRMLS_DC);
+		zend_throw_exception(ce_excetpion, Z_STRVAL(message), 0 TSRMLS_DC);
 	}
 
 	zval *stream;

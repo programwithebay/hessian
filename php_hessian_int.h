@@ -25,9 +25,11 @@
 #ifndef _PHP_HESSIAN_INIT_H_
 #define _PHP_HESSIAN_INIT_H_ 1
 
-
-extern zend_object_handlers dubbo_client_object_handlers;
 extern zend_object_handlers hessian_buffered_stream_object_handlers;
+
+
+/*
+extern zend_object_handlers dubbo_client_object_handlers;
 
 struct _dubbo_client_entry{
 }
@@ -35,6 +37,7 @@ struct dubbo_client_object {
     zend_object std;
     //DubboClient *client;
 };
+*/
 
 
 /*
@@ -78,7 +81,7 @@ PHP_FUNCTION(calltest);
 void hessian_buffered_stream_free_storage(void *object TSRMLS_DC);
 
 zend_object_value hessian_buffered_stream_create_handler(zend_class_entry *type TSRMLS_DC);
-void void hessian2_parser_read(zval *self, ulong count, zval *return_value);
+void hessian2_parser_read(zval *self, ulong count, zval *return_value);
 
 
 //class entry
@@ -112,6 +115,11 @@ extern zend_class_entry *hessian2_parser_entry;
 extern zend_class_entry *hessian2_service_parser_entry;
 extern zend_class_entry *hessian2_service_writer_entry;
 extern zend_class_entry *hessian2_writer_entry;
+extern zend_class_entry *hessian_parsing_exception_entry;
+extern zend_class_entry *hessian_fault_entry;
+extern zend_class_entry *hessian_exception_entry;
+extern zend_class_entry *hessian_factory_entry;
+
 
 
 
@@ -135,18 +143,19 @@ extern const zend_function_entry ihessian_ignore_code_functions[];
 extern const zend_function_entry hessian_class_def_functions[];
 extern const zend_function_entry hessian_class_functions[];
 extern const zend_function_entry hessian_ref_functions[];
-extern zend_function_entry *hessian_call_functions;
+extern const zend_function_entry hessian_call_functions[];
 extern const zend_function_entry hessian_stream_result_functions[];
 extern const zend_function_entry hessian_stream_functions[];
 extern const zend_function_entry ihessian_transport_functions[];
 extern const zend_function_entry hessian_curl_transport_functions[];
-extern const zend_function_entry *hessian_type_map_functions;
-extern const zend_function_entry *hessian_utils_functions;
-extern zend_class_entry *hessian2_iterator_writer_functions;
-extern zend_class_entry *hessian2_parser_functions;
-extern zend_class_entry *hessian2_service_parser_functions;
-extern zend_class_entry *hessian2_service_writer_functions;
-extern zend_class_entry *hessian2_writer_functions;
+extern const zend_function_entry hessian_type_map_functions[];
+extern const zend_function_entry hessian_utils_functions[];
+extern const zend_class_entry hessian2_iterator_writer_functions[];
+extern const zend_class_entry hessian2_parser_functions[];
+extern const zend_class_entry *essian2_service_parser_functions[];
+extern const zend_class_entry hessian2_service_writer_functions[];
+extern const zend_class_entry hessian2_writer_functions[];
+extern const zend_class_entry hessian2_factory_functions[];
 
 
 #endif

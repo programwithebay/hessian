@@ -21,7 +21,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
 
 
 //params
@@ -44,7 +44,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_type_map_get_remote_type, 0, 0, 1)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_type_map_merge, 0, 0, 1)
-	ZEND_ARG_OBJ_INFO(0, map, "HessianTypeMap", O) /* string */
+	ZEND_ARG_OBJ_INFO(0, map, "HessianTypeMap", 0) /* string */
 ZEND_END_ARG_INFO()
 
 
@@ -77,14 +77,14 @@ char* hessian_type_map_rule_to_regexp(zval *string){
 	zval param1, param2;
 	zval *rule;
 
-	ZVAL_STRING(function_name, "str_replace");
+	ZVAL_STRING(&function_name, "str_replace", 1);
 	params[0] = string;
 	call_user_function(EG(function_table), NULL, &function_name, rule, 1, params TSRMLS_DC);
 	//$rule = str_replace('.', '\.', $string);
 	//return '/' . str_replace('*', self::REG_ALL, $rule) . '/';
 
-	ZVAL_STRING(&param1, "*");
-	ZVAL_STRING(&param2, "([_0-9a-z\-]*)");
+	ZVAL_STRING(&param1, "*", 1);
+	ZVAL_STRING(&param2, "([_0-9a-z\-]*)", 1);
 	params[0] = &param1;
 	params[1] = &param2;
 	params[2] = rule;
@@ -92,15 +92,15 @@ char* hessian_type_map_rule_to_regexp(zval *string){
 
 	char *buf;
 
-	buf = pemalloc(Z_STRLEN_P(rule) + 2);
+	buf = pemalloc(Z_STRLEN_P(rule) + 2, 0);
 	if (!buf){
 		php_error_docref(NULL, E_ERROR, "hessian_type_map_rule_to_regexp alloc memory error");
 		return;
 	}
 	buf[0] = '/';
 	memcpy(buf+1, Z_STRVAL_P(rule), Z_STRLEN_P(rule));
-	buf[1+Z_STRVAL_P(rule)] = '/';
-	buf[1+Z_STRVAL_P(rule)+1] = 0;
+	buf[1+Z_STRLEN_P(rule)] = '/';
+	buf[1+Z_STRLEN_P(rule)+1] = 0;
 	return buf;
 }
 
@@ -112,7 +112,7 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 	rule_remote = hessian_type_map_is_rule(remote);
 	if ( rule_local && rule_remote){
 		//throw new Exception('Typemap : Cannot use wildcards in both local and remote types');
-		zend_class_entry ce_exception;
+		zend_class_entry *ce_exception;
 		ce_exception = zend_fetch_class("Exception", strlen("Exception")-1, 0);
 		zend_throw_exception(ce_exception, "Typemap : Cannot use wildcards in both local and remote types", 0);
 		return;
@@ -173,7 +173,7 @@ static PHP_METHOD(HessianTypeMap, __construct)
 {
 	zval *map;
 	zval *self;
-	HashPosition *pos;
+	HashPosition pos;
 	zval **src_entry;
 	char *string_key;
 	uint string_key_len;
@@ -197,7 +197,7 @@ static PHP_METHOD(HessianTypeMap, __construct)
 	
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(map), (void **)&src_entry, &pos) == SUCCESS) {
 		zend_hash_get_current_key_ex(Z_ARRVAL_P(map), &string_key, &string_key_len, &num_key, 0, &pos);
-		ZVAL_STRING(local, string_key, 0);
+		ZVAL_STRING(&local, string_key, 0);
 		hessian_type_map_map_type(self, &local, *src_entry);
 		zend_hash_move_forward_ex(Z_ARRVAL_P(map), &pos);
 	}
@@ -245,7 +245,7 @@ static PHP_METHOD(HessianTypeMap, getLocalType)
 	*/
 	ce_remote_type = zend_fetch_class(Z_STRVAL_P(remote_type), Z_STRLEN_P(remote_type), 0);
 	if (ce_remote_type){
-		RETURN_ZVAL(remote_type, 0);
+		RETURN_ZVAL(remote_type, 0, NULL);
 	}
 
 
@@ -268,7 +268,7 @@ static PHP_METHOD(HessianTypeMap, getLocalType)
 		zval *local;
 		if (SUCCESS == zend_hash_find(Z_ARRVAL_P(types), Z_STRVAL_P(remote_type), Z_STRLEN_P(remote_type), &local)){
 			if(strcmp(Z_STRVAL_P(local), "array") == 0){
-				RETURN_ZVAL(local, 1);
+				RETURN_ZVAL(local, 1, NULL);
 			}else{
 				RETURN_FALSE;
 			}
@@ -286,7 +286,7 @@ static PHP_METHOD(HessianTypeMap, getRemoteType)
 	zval *local_type, *remote, *types;
 	zval *local_rules;
 	zval *self;
-	HashPosition *pos;
+	HashPosition pos;
 	zval *entry;
 
 	
@@ -310,7 +310,7 @@ static PHP_METHOD(HessianTypeMap, getRemoteType)
 		zval *compare_result;
 		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(types), (void **)&entry, &pos) == SUCCESS) {
 			if (compare_function(compare_result, entry, local_type TSRMLS_CC) == FAILURE) {
-				RETURN_ZVAL(entry, 1);
+				RETURN_ZVAL(entry, 1, NULL);
 			}
 			zend_hash_move_forward_ex(Z_ARRVAL_P(types), &pos);
 		}
@@ -333,20 +333,20 @@ static PHP_METHOD(HessianTypeMap, getRemoteType)
 	
 	local_rules = zend_read_property(NULL, self, ZEND_STRL("localRules"), 1 TSRMLS_DC);
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(local_rules), &pos);
-	ZVAL_STRING(function_name, "preg_match");
+	ZVAL_STRING(&function_name, "preg_match", 1);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(local_rules), (void **)&entry, &pos) == SUCCESS) {
 		zend_hash_get_current_key(Z_ARRVAL_P(local_rules), &str_key, &num_index, 0);
-		ZVAL_STRING(rule, str_key);
-		params[0] = rule;
+		ZVAL_STRING(&rule, str_key, 1);
+		params[0] = &rule;
 		params[1] = local_type;
 		call_user_function(EG(function_table), NULL, &function_name, preg_res, 2, params TSRMLS_DC);
 		if (i_zend_is_true(preg_res)){
-			RETURN_ZVAL(remote, 1);
+			RETURN_ZVAL(remote, 1, NULL);
 		}
 		zend_hash_move_forward_ex(Z_ARRVAL_P(local_rules), &pos);
 	}
 
-	RETURN_ZVAL(local_type, 1);
+	RETURN_ZVAL(local_type, 1, NULL);
 }
 
 

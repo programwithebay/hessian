@@ -20,7 +20,9 @@
 
 #include "php.h"
 #include "php_ini.h"
+#include "php_hessian_int.h"
 #include "hessian_common.h"
+#include "php_hessian.h"
 
 
 //params
@@ -37,6 +39,11 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_ref_get_index, 0, 0, 1)
 	ZEND_ARG_INFO(0, list) /* string */
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_ref_construct, 0, 0, 1)
+	ZEND_ARG_INFO(0, list) /* string */
+ZEND_END_ARG_INFO()
+
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_result_construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, stream) /* string */
 ZEND_END_ARG_INFO()
@@ -50,13 +57,15 @@ zend_class_entry *hessian_call_entry;
 zend_class_entry *hessian_ref_entry;
 zend_class_entry *hessian_stream_result_entry;
 
+ZEND_DECLARE_MODULE_GLOBALS(hessian)
+
 
 /*
 	HessianRuleResolver::resolveSymbol
 */
 hessian_parsing_rule hessian_rule_resolver_resolve_symbol(char symbol, char *type_expected)
 {
-	byte index;
+	char index;
 	hessian_parsing_rule rule;
 	
 	
@@ -80,10 +89,10 @@ hessian_parsing_rule hessian_rule_resolver_resolve_symbol(char symbol, char *typ
 
 		len = i;
 		for(i=0; i<len; i++){
-			if strcmp(rule.type, split[i]) == 0){
+			if (strcmp(rule.type, split[i]) == 0){
 				//throw new HessianParsingException("Type $typeExpected expected");
 				//@todo:error code
-				zend_throw_exception(Hessian_parsing_exception_entry, sprintf("Type %s expected", type_expected), 8);
+				zend_throw_exception(hessian_parsing_exception_entry, sprintf("Type %s expected", type_expected), 8);
 			}
 		}
 	}
@@ -141,9 +150,9 @@ static PHP_METHOD(HessianRef, getIndex)
 
 	object_init_ex(return_value, hessian_ref_entry);
 	INIT_ZVAL(function_name);
-	ZVAL_STRING(function_name, "__construct", 1);
+	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = list;
-	call_user_function(NULL, return_value, &function_name, NULL, 1, params TSRMLS_CC);
+	call_user_function(NULL, &return_value, &function_name, NULL, 1, params TSRMLS_CC);
 }
 
 
@@ -163,9 +172,9 @@ static PHP_METHOD(HessianRef, __construct)
 	if (Z_TYPE_P(list) == IS_ARRAY){
 		zval *index;
 		ALLOC_ZVAL(index);
-		INIT_ZVAL(index);
+		INIT_ZVAL(*index);
 		cnt = zend_hash_num_elements(Z_ARRVAL_P(list));
-		ZVAL_LONG(&index, ZEND_CONSTRUCTOR_FUNC_NAME, cnt);
+		ZVAL_LONG(&index, cnt - 1);
 		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), index TSRMLS_DC);
 	}else{
 		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), list TSRMLS_DC);
@@ -211,9 +220,9 @@ const zend_function_entry hessian_call_functions[] = {
 
 //HessianRef functions
 const zend_function_entry hessian_ref_functions[] = {
-	PHP_ME(HessianCall, isRef, 	arginfo_hessian_ref_isref,		ZEND_ACC_PUBLIC)
-	PHP_ME(HessianCall, getIndex, 	arginfo_hessian_ref_get_index,		ZEND_ACC_PUBLIC)
-	PHP_ME(HessianCall, __construct, 	arginfo_hessian_ref_construct,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianRef, isRef, 	arginfo_hessian_ref_isref,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianRef, getIndex, 	arginfo_hessian_ref_get_index,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianRef, __construct, 	arginfo_hessian_ref_construct,		ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

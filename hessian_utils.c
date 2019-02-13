@@ -21,7 +21,9 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
+
+//ZEND_DECLARE_MODULE_GLOBALS(date)
 
 
 //params
@@ -88,32 +90,44 @@ static PHP_METHOD(HessianUtils, setTimeZone)
 {
 	zval *timezone;
 	zval *self;
+	zval function_name;
+	zval *params[1];
+	
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &timezone)) {
 		return;
 	}
 	self = getThis();
 
-	if (i_zend_is_true(timezone)){
-		if (DATEG(timezone)) {
-			efree(DATEG(timezone));
-			DATEG(timezone) = NULL;
-		}
-		DATEG(timezone) = estrndup(zone, zone_len);
-	}else{
-		/*
+	/*
+		if($timezone)
+			date_default_timezone_set($timezone);
+		else {
 			$origError = error_reporting(0);
 			$tz = date_default_timezone_get();
 			error_reporting($origError);
 			date_default_timezone_set($tz);
-		*/
-
-		timelib_tzinfo *default_tz = get_timezone_info(TSRMLS_C);
-		if (DATEG(timezone)) {
-			efree(DATEG(timezone));
-			DATEG(timezone) = NULL;
 		}
-		DATEG(timezone) = estrndup(default_tz->name, strlen(default_tz->name));
+	*/
+	
+	if (i_zend_is_true(timezone)){
+		ZVAL_STRING(&function_name, "date_default_timezone_set", 1);
+		params[0] = timezone;
+		call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
+	}else{
+		int old_error_reporting;
+		zval *tz;
+		
+		old_error_reporting = EG(error_reporting);
+
+		ZVAL_STRING(&function_name, "date_default_timezone_get", 1);
+		call_user_function(EG(function_table), NULL, &function_name, tz, 0, params TSRMLS_DC);
+		
+		zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), "0", 1, ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
+
+		ZVAL_STRING(&function_name, "date_default_timezone_set", 1);
+		params[0] = tz;
+		call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
 	}
 }
 
@@ -155,7 +169,7 @@ static PHP_METHOD(HessianUtils, isListIterate)
 {
 	zval *arr, *src_entry;
 	zval *self;
-	HashPosition *pos;
+	HashPosition pos;
 	char *string_key;
 	uint string_key_len;
 	ulong num_key;
@@ -202,7 +216,7 @@ static PHP_METHOD(HessianUtils, isListIterate)
 static PHP_METHOD(HessianUtils, isListFormula)
 {
 	zval *arr, *src_entry;
-	HashPosition *pos;
+	HashPosition pos;
 	zval *self;
 	uint n,sum;
 	char *string_key;
@@ -286,17 +300,20 @@ static PHP_METHOD(HessianUtils, floatBytes)
 	*/
 
 	little_endian = zend_read_property(hessian_util_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
-	ZVAL_STRING(function_name, "pack");
-	ZVAL_STRING(param1, "s");
-	params[0] = param1;
+	ZVAL_STRING(&function_name, "pack", 1);
+	ZVAL_STRING(&param1, "s", 1);
+	params[0] = &param1;
 	params[1] = number;
 	call_user_function(EG(function_table),NULL, &function_name, bytes, 2, params TSRMLS_DC);
 	if (i_zend_is_true(little_endian)){
 		char *n, *p, *e;
+		char *str;
+
+		str = Z_STRVAL_P(bytes);
 		n = emalloc(Z_STRLEN_P(bytes)+1);
 		p = n;
 
-		e = str + str_len;
+		e = str + Z_STRLEN_P(bytes);
 
 		while (--e>=str) {
 			*p++ = *e;
@@ -306,7 +323,7 @@ static PHP_METHOD(HessianUtils, floatBytes)
 
 		RETVAL_STRINGL(n, Z_STRLEN_P(bytes), 0);
 	}else{
-		RETURN_ZVAL(bytes, 1);
+		RETURN_ZVAL(bytes, 1, NULL);
 	}
 }
 
@@ -339,17 +356,20 @@ static PHP_METHOD(HessianUtils, doubleBytes)
 	*/
 
 	little_endian = zend_read_property(hessian_util_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
-	ZVAL_STRING(function_name, "pack");
-	ZVAL_STRING(param1, "d");
-	params[0] = param1;
+	ZVAL_STRING(&function_name, "pack", 1);
+	ZVAL_STRING(&param1, "d", 1);
+	params[0] = &param1;
 	params[1] = number;
 	call_user_function(EG(function_table),NULL, &function_name, bytes, 2, params TSRMLS_DC);
 	if (i_zend_is_true(little_endian)){
 		char *n, *p, *e;
+		char *str;
+
+		str = Z_STRVAL_P(bytes);
 		n = emalloc(Z_STRLEN_P(bytes)+1);
 		p = n;
 
-		e = str + str_len;
+		e = str + Z_STRLEN_P(bytes);
 
 		while (--e>=str) {
 			*p++ = *e;
@@ -359,7 +379,7 @@ static PHP_METHOD(HessianUtils, doubleBytes)
 
 		RETVAL_STRINGL(n, Z_STRLEN_P(bytes), 0);
 	}else{
-		RETURN_ZVAL(bytes, 1);
+		RETURN_ZVAL(bytes, 1, NULL);
 	}
 }
 
@@ -380,7 +400,6 @@ static PHP_METHOD(HessianUtils, timestampFromBytes64)
 {
 	zval *bytes, *little_endian;
 	zval *self, param1;
-	zval *bytes;
 	zval function_name;
 	zval *params[2];
 	char sec1[5], sec2[5];
@@ -418,13 +437,15 @@ static PHP_METHOD(HessianUtils, timestampFromBytes64)
 	zval *b1, *b2;
 	zval format;
 	
-	ZVAL_STRING(function_name, "unpack", 1);
-	ZVAL_STRING(format, "N", 1);
-	params[0 ] = format;
-	params[1] = sec1;
+	ZVAL_STRING(&function_name, "unpack", 1);
+	ZVAL_STRING(&format, "N", 1);
+	params[0 ] = &format;
+	ZVAL_STRING(&param1, sec1, 1);
+	params[1] = &param1;
 	call_user_function(EG(function_table), NULL, &function_name, b1, 2, params TSRMLS_DC);
 
-	params[1] = sec2;
+	ZVAL_STRING(&param1, sec2, 1);
+	params[1] = &param1;
 	call_user_function(EG(function_table), NULL, &function_name, b2, 2, params TSRMLS_DC);
 
 

@@ -50,6 +50,15 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_write, 0, 0, 1)
 	ZEND_ARG_INFO(0, data) /* string */
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_close, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_flush, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_get_data, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
 
 
 //entry
@@ -67,7 +76,7 @@ void hessian_stream_set_stream(zval *self, zval *data)
 	Z_LVAL_P(len) = Z_STRLEN_P(data);
 	zend_update_property(NULL, self, ZEND_STRL("len"), len TSRMLS_DC);
 	//pos
-	Z_LVAL(pos, 0);
+	ZVAL_LONG(pos, 0);
 	zend_update_property(NULL, self, ZEND_STRL("pos"), pos TSRMLS_DC);
 }
 
@@ -125,12 +134,12 @@ static PHP_METHOD(HessianStream, setStream)
 */
 static PHP_METHOD(HessianStream, peek)
 {
-	zval *self;
+	zval *self, *arg_pos;
 	long count, pos;
 	zval *bytes;
 	char *buf, *ret_buf;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &count, &pos) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &count, &arg_pos) == FAILURE) {
 		RETURN_FALSE;
 	}
 
@@ -140,13 +149,15 @@ static PHP_METHOD(HessianStream, peek)
         	$this->pos = 0;
        */
 	self = getThis();
-	if (Z_TYPE_P(pos) == IS_NULL){
+	if (Z_TYPE_P(arg_pos) == IS_NULL){
 		zval *z_pos;
 		z_pos = zend_read_property(NULL, self, ZEND_STRL("pos"), 1 TSRMLS_DC);
 		pos  = Z_LVAL_P(z_pos);
+	}else{
+		pos = Z_LVAL_P(arg_pos);
 	}
 	bytes = zend_read_property(NULL, self, ZEND_STRL("bytes"), 1 TSRMLS_DC);
-	if (Z_TYPE_P(bytes) != IS_STRING || (Z_STRLEN_P(bytes) < 1){
+	if (Z_TYPE_P(bytes) != IS_STRING || (Z_STRLEN_P(bytes) < 1)){
 		RETURN_FALSE;
 	}
 
@@ -157,7 +168,7 @@ static PHP_METHOD(HessianStream, peek)
 	if ((Z_STRLEN_P(bytes) -  pos) < count){
 		count = Z_STRLEN_P(bytes) -  pos;
 	}
-	ret_buf = pemalloc(count+1);
+	ret_buf = pemalloc(count+1, 0);
 	memcpy(ret_buf, buf+pos, count);
 	RETURN_STRING(ret_buf, 0);
 }
@@ -206,7 +217,7 @@ static PHP_METHOD(HessianStream, read)
 		RETURN_FALSE;
 	}
 
-	ret_buf = pemalloc(count+1);
+	ret_buf = pemalloc(count+1, 0);
 	memcpy(ret_buf, buf+pos, count);
 
 	//update pos
@@ -268,8 +279,8 @@ static PHP_METHOD(HessianStream, write)
 			php_error_docref(NULL, E_ERROR, "Hessian::write alloc memory error");
 			return;
 		}
-		memcpy(buf, Z_STRLEN_P(bytes), Z_STRLEN_P(bytes));
-		memcpy(buf+Z_STRLEN_P(bytes), Z_STRLEN_P(data), Z_STRLEN_P(data));
+		memcpy(buf, Z_STRVAL_P(bytes), Z_STRLEN_P(bytes));
+		memcpy(buf+Z_STRLEN_P(bytes), Z_STRVAL_P(data), Z_STRLEN_P(data));
 		buf[Z_STRLEN_P(bytes)+Z_STRLEN_P(data)] = 0;
 		Z_STRVAL_P(bytes) = buf;
 		Z_STRLEN_P(bytes) = Z_STRLEN_P(bytes)+Z_STRLEN_P(data);
@@ -314,7 +325,7 @@ static PHP_METHOD(HessianStream, getData)
       */
     bytes = zend_read_property(NULL, self, ZEND_STRL("bytes"), 1 TSRMLS_DC);
 	if ((Z_TYPE_P(bytes) == IS_STRING) && (Z_STRLEN_P(bytes) > 0) ){
-		RETURN_STRING(Z_STRLEN_P(bytes), 1);
+		RETURN_STRING(Z_STRVAL_P(bytes), 1);
 	}
 	RETURN_FALSE;
 }

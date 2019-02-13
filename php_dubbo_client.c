@@ -29,23 +29,10 @@
 #include <sys/stat.h>
 
 
-/*
+
 zend_object_handlers dubbo_client_object_handlers;
 
 struct _dubbo_client_entity{
-	char *version;
-	long connectTimeout;
-	long executeTimeout;
-	char retries;
-	char *dubbo;
-	char *loadbalance;
-	char *methods;
-	char *interface;
-	char *owner;
-	char *protocol;
-	char *side;
-	char *timestamp;
-	HashTable *serviceConfig;
 	zend_fcall_info fci;
 	zend_fcall_info_cache fci_cache;
 };
@@ -87,7 +74,6 @@ zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC)
 
     return retval;
 }
-*/
 
 
 
@@ -129,7 +115,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_timeout, 0, 0, 1)
 	ZEND_ARG_INFO(0, timeout) /* string serviceName */
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_dubo, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_dubbo_client_set_dubbo, 0, 0, 1)
 	ZEND_ARG_INFO(0, dubbo) /* string serviceName */
 ZEND_END_ARG_INFO()
 
@@ -346,7 +332,7 @@ static PHP_METHOD(DubboClient, setGroup)
 		return;
 	}
 
-	if (Z_TYPE_P(setGroup) != IS_STRING){
+	if (Z_TYPE_P(group) != IS_STRING){
 		php_error_docref(NULL, E_WARNING, "group must be a string");
 		return;
 	}
