@@ -21,7 +21,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
 
 
 //params
@@ -31,7 +31,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_writer_write_call, 0, 0, 2)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian2_writer_write_fault, 0, 0, 2)
-	ZEND_ARG_TYPE_INFO(0, ex, "Exception", 0) /* string */
+	ZEND_ARG_OBJ_INFO(0, ex, "Exception", 0) /* string */
 	ZEND_ARG_INFO(0, detail) /* string */
 ZEND_END_ARG_INFO()
 
@@ -95,7 +95,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 	
 
 	//$stream = $this->writeVersion();
-	ZVAL_STRING(function_name, "writeVersion", 1);
+	ZVAL_STRING(&function_name, "writeVersion", 1);
 	call_user_function(NULL, &self, &function_name, stream, 0, params TSRMLS_DC);
 	if (Z_TYPE_P(stream) != IS_STRING || Z_STRLEN_P(stream) < 1){
 		php_error_docref(NULL, E_WARNING, "call stream->writeVersion error");
@@ -107,12 +107,12 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 	//$stream .= 'C';
 	
 	//$stream .= $this->writeString($method);
-	ZVAL_STRING(function_name, "writeString", 1);
+	ZVAL_STRING(&function_name, "writeString", 1);
 	call_params[0] = method;
 	call_user_function(NULL, &self, &function_name, write_string_res, 1, call_params TSRMLS_DC);
 
 	//$stream .= $this->writeInt(count($params));
-	ZVAL_STRING(function_name, "writeInt", 1);
+	ZVAL_STRING(&function_name, "writeInt", 1);
 	Z_TYPE(param1) = IS_LONG;
 	Z_LVAL(param1) = params_count;
 	call_params[0] = &param1;
@@ -135,7 +135,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 		}
 	*/
 	i=0;
-	HashPosition *pos;
+	HashPosition pos;
 	zval *src_entry;
 	ZVAL_STRING(&function_name, "writeValue", 1);
 
@@ -193,7 +193,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeFault)
 		return;
 	}
 
-	ZVAL_STRING(&param1, sprintf("fault"), 1);
+	ZVAL_STRING(&param1, "fault", 1);
 	params[0] = &param1;
 	ZVAL_STRING(&function_name, "logMsg", 1);
 	call_user_function(NULL, &self, &function_name, NULL, 1, params TSRMLS_DC);
@@ -215,33 +215,33 @@ static PHP_METHOD(Hessian2ServiceWriter, writeFault)
 
 	array_init_size(&arr, 5);
 	
-	ZVAL_STRING(function_name, "getMessage", 1);
-	call_user_function(NULL, &ex, &function_name, message,  0, params, TSRMLS_DC);
-	zend_hash_add(Z_ARRVAL(arr), "message", 7, &message, NULL);
+	ZVAL_STRING(&function_name, "getMessage", 1);
+	call_user_function(NULL, &ex, &function_name, message,  0, params TSRMLS_DC);
+	zend_hash_add(Z_ARRVAL(arr), "message", 7, &message, sizeof(zval *), NULL);
 
 	
-	ZVAL_STRING(function_name, "getCode", 1);
-	call_user_function(NULL, &ex, &function_name, code,  0, params, TSRMLS_DC);
-	zend_hash_add(Z_ARRVAL(arr), "code", 4, &code, NULL);
+	ZVAL_STRING(&function_name, "getCode", 1);
+	call_user_function(NULL, &ex, &function_name, code,  0, params TSRMLS_DC);
+	zend_hash_add(Z_ARRVAL(arr), "code", 4, &code, sizeof(zval *), NULL);
 
-	ZVAL_STRING(function_name, "getFile", 1);
-	call_user_function(NULL, &ex, &function_name, file,  0, params, TSRMLS_DC);
-	zend_hash_add(Z_ARRVAL(arr), "file", 4, &file, NULL);
+	ZVAL_STRING(&function_name, "getFile", 1);
+	call_user_function(NULL, &ex, &function_name, file,  0, params TSRMLS_DC);
+	zend_hash_add(Z_ARRVAL(arr), "file", 4, &file, sizeof(zval *), NULL);
 
-	ZVAL_STRING(function_name, "getTraceAsString", 1);
-	call_user_function(NULL, &ex, &function_name, trace,  0, params, TSRMLS_DC);
-	zend_hash_add(Z_ARRVAL(arr), "trace", 5, &trace, NULL);
+	ZVAL_STRING(&function_name, "getTraceAsString", 1);
+	call_user_function(NULL, &ex, &function_name, trace,  0, params TSRMLS_DC);
+	zend_hash_add(Z_ARRVAL(arr), "trace", 5, &trace, sizeof(zval *), NULL);
 
-	zend_hash_add(Z_ARRVAL(arr), "detail", 6, &detail, NULL);
+	zend_hash_add(Z_ARRVAL(arr), "detail", 6, &detail, sizeof(zval *), NULL);
 
 	//$stream .= $this->writeMap($arr);
 
 	zval *write_map_res;
-	params[0] = arr;
-	ZVAL_STRING(function_name, "writeMap", 1);
-	call_user_function(NULL, &self, &function_name, write_map_res,  1, params, TSRMLS_DC);
+	params[0] = &arr;
+	ZVAL_STRING(&function_name, "writeMap", 1);
+	call_user_function(NULL, &self, &function_name, write_map_res,  1, params TSRMLS_DC);
 
-	char *buf, *P;
+	char *buf, *p;
 	buf = pemalloc(Z_STRLEN_P(stream) + 1 + Z_STRLEN_P(write_map_res), 1);
 	if (!buf){
 		php_error_docref(NULL, E_ERROR, "Hessian2ServiceWriter::writeFault alloc memory error");
@@ -265,6 +265,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeReply)
 {
 	zval *self, *value, *stream;
 	zval function_name;
+	zval param1;
 	zval *params[2];
 	
 	self = getThis();
@@ -274,7 +275,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeReply)
 	}
 
 
-	ZVAL_STRING(&param1, sprintf("reply"), 1);
+	ZVAL_STRING(&param1, "reply", 1);
 	params[0] = &param1;
 	ZVAL_STRING(&function_name, "logMsg", 1);
 	call_user_function(NULL, &self, &function_name, NULL, 1, params TSRMLS_DC);
@@ -290,10 +291,10 @@ static PHP_METHOD(Hessian2ServiceWriter, writeReply)
 
 	zval *write_value_res;
 	params[0] = value;
-	ZVAL_STRING(function_name, "writeValue", 1);
-	call_user_function(NULL, &self, &function_name, write_value_res,  1, params, TSRMLS_DC);
+	ZVAL_STRING(&function_name, "writeValue", 1);
+	call_user_function(NULL, &self, &function_name, write_value_res,  1, params TSRMLS_DC);
 
-	char *buf, *P;
+	char *buf, *p;
 	buf = pemalloc(Z_STRLEN_P(stream) + 1 + Z_STRLEN_P(stream), 1);
 	if (!buf){
 		php_error_docref(NULL, E_ERROR, "Hessian2ServiceWriter::writeReply alloc memory error");
@@ -328,7 +329,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeVersion)
 	Z_STRVAL(res) = buf;
 	Z_STRLEN(res) = 3;
 	
-	RETURN_ZVAL(&res, 1);
+	RETURN_ZVAL(&res, 1, NULL);
 }
 
 

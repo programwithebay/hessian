@@ -21,7 +21,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
 
 
 //params
@@ -81,7 +81,7 @@ static PHP_METHOD(Hessian2ServiceParser, detectVersion)
 	Z_TYPE(param1) = IS_LONG;
 	Z_LVAL(param1) = 0;
 	Z_TYPE(param1) = IS_LONG;
-	ZVAL_STRING(function_name, "peek", 1);
+	ZVAL_STRING(&function_name, "peek", 1);
 	params[0]= &param1;
 	params[1] = &param2;
 
@@ -94,7 +94,7 @@ static PHP_METHOD(Hessian2ServiceParser, detectVersion)
 	}
 	buf = Z_STRVAL_P(version);
 
-	if (buf[0] == 'H' && buf[1] = 2 && buf[2] == 0){
+	if ((buf[0] == 'H') && (buf[1] == 2) && (buf[2] == 0)){
 		RETURN_TRUE;
 	}else{
 		RETURN_FALSE;
@@ -149,17 +149,17 @@ static PHP_METHOD(Hessian2ServiceParser, parseTop)
 		return $value;
 	*/
 
-	if(Z_TYPE_P(code) !=  IS_STRING){
+	if(Z_TYPE(code) !=  IS_STRING){
 		php_error_docref(NULL, E_WARNING, "code not a string");
 		return;
 	}
 
-	if (Z_STRLEN_P(code) < 1){
-		zend_throw_exception(hessian_faulut_entry, "code is empty", 0 TSRMLS_DC);
+	if (Z_STRLEN(code) < 1){
+		zend_throw_exception(hessian_fault_entry, "code is empty", 0 TSRMLS_DC);
 		return;
 	}
 
-	switch(Z_STRVAL_P(code)[0]){
+	switch(Z_STRVAL(code)[0]){
 		case 'R':
 			ZVAL_STRING(&function_name, "parseReply",  1);
 			call_user_function(NULL, &self, &function_name, value, 0, params TSRMLS_DC);
@@ -177,7 +177,7 @@ static PHP_METHOD(Hessian2ServiceParser, parseTop)
 			call_user_function(NULL, &self, &function_name, value, 0, params TSRMLS_DC);
 			break;
 		default:
-			zend_throw_exception(hessian_faulut_entry, sprintf("Code %s not recognized as a top element", Z_STRVAL_P(code)[0])
+			zend_throw_exception(hessian_fault_entry, sprintf("Code %s not recognized as a top element", Z_STRVAL(code)[0])
 				, 0 TSRMLS_DC);
 	}
 }
@@ -204,7 +204,7 @@ static PHP_METHOD(Hessian2ServiceParser, parseReply)
 	ZVAL_STRING(&function_name, "parse", 1);
 	call_user_function(NULL, &self, &function_name, res, 0, params TSRMLS_DC);
 
-	RETURN_ZVAL(res, 1);
+	RETURN_ZVAL(res, 1,  NULL);
 }
 
 /*
@@ -234,7 +234,7 @@ static PHP_METHOD(Hessian2ServiceParser, parseCall)
 	
 
 	//$call->method = $this->parse(null, 'string');
-	Z_TYPE_P(param1) = IS_NULL;
+	Z_TYPE(param1) = IS_NULL;
 	ZVAL_STRING(&param2, "string", 1);
 
 	ZVAL_STRING(&function_name, "parse", 1);
@@ -261,20 +261,20 @@ static PHP_METHOD(Hessian2ServiceParser, parseCall)
 	}
 
 	arguments = zend_read_property(NULL, &call, ZEND_STRL("arguments"), 1 TSRMLS_DC);
-	if (Z_TYPE_P(arguments)) != IS_ARRAY){
+	if (Z_TYPE_P(arguments) != IS_ARRAY){
 		array_init_size(arguments, 4);
 	}
 
 	zval *arg;
 	ZVAL_STRING(&function_name, "parseCheck", 1);
 	for(i=0; i<Z_LVAL_P(num); i++){
-		call_user_function(NULL, self, &function_name, arg, 0, params TSRMLS_DC);
+		call_user_function(NULL, &self, &function_name, arg, 0, params TSRMLS_DC);
 		zend_hash_next_index_insert(Z_ARRVAL_P(arguments), &arg, sizeof(zval **), NULL);
 	}
 
 	zend_update_property(NULL, &call, ZEND_STRL("arguments"), arguments TSRMLS_DC);
 
-	RETURN_ZVAL(&call, 1);
+	RETURN_ZVAL(&call, 1, NULL);
 }
 
 
@@ -284,6 +284,7 @@ static PHP_METHOD(Hessian2ServiceParser, parseCall)
 static PHP_METHOD(Hessian2ServiceParser, parseFault)
 {
 	zval *self, *map, fault;
+	zval *p_fault;
 	zval *message, *code;
 	zval param1, param2, function_name;
 	zval *params[3];
@@ -305,8 +306,8 @@ static PHP_METHOD(Hessian2ServiceParser, parseFault)
 	call_user_function(NULL, &self, &function_name, map, 2, params TSRMLS_DC);
 
 	//$fault = new HessianFault($map['message'], $map['code'], $map);
-	zend_hash_find(Z_ARRVAL_P(map), "message", 7, &message);
-	zend_hash_find(Z_ARRVAL_P(map), "code", 7, &code);
+	zend_hash_find(Z_ARRVAL_P(map), "message", 7, (void **)&message);
+	zend_hash_find(Z_ARRVAL_P(map), "code", 7, (void **)&code);
 
 	object_init_ex(&fault, hessian_fault_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
@@ -314,9 +315,10 @@ static PHP_METHOD(Hessian2ServiceParser, parseFault)
 	params[1] = code;
 	params[2] = map;
 
-	call_user_function(NULL, &fault, &function_name, map, 3, params TSRMLS_DC);
+	p_fault = &fault;
+	call_user_function(NULL, &p_fault, &function_name, map, 3, params TSRMLS_DC);
 	
-	RETURN_ZVAL(&fault, 1);
+	RETURN_ZVAL(&fault, 1, NULL);
 }
 
 
@@ -345,7 +347,7 @@ static PHP_METHOD(Hessian2ServiceParser, parsePacket)
 
 
 //Hessian2ServiceParser functions
-const zend_function_entry hessian2_service_writer_functions[] = {
+const zend_function_entry hessian2_service_parser_functions[] = {
 	PHP_ME(Hessian2ServiceParser, detectVersion, arginfo_hessian2_parser_detect_version, ZEND_ACC_STATIC|ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2ServiceParser, parseTop, arginfo_hessian2_parser_parse_top, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2ServiceParser, parseReply, arginfo_hessian2_parser_parse_top, ZEND_ACC_PUBLIC)

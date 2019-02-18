@@ -121,7 +121,10 @@ extern zend_class_entry *hessian_fault_entry;
 extern zend_class_entry *hessian_exception_entry;
 extern zend_class_entry *hessian_factory_entry;
 extern zend_class_entry *hessian_utils_entry;
-
+extern zend_class_entry *hessian_service_entry;
+extern zend_class_entry *hessian_parsing_exception_entry;
+extern zend_class_entry *hessian_exception_entry;
+extern zend_class_entry *hessian_fault_entry;
 
 
 
@@ -161,6 +164,11 @@ extern const zend_function_entry hessian2_writer_functions[];
 extern const zend_function_entry hessian2_factory_functions[];
 extern const zend_function_entry hessian_reference_map_functions[];
 extern const zend_function_entry hessian_utils_functions[];
+extern const zend_function_entry hessian_service_functions[];
+extern const zend_function_entry hessian_parsing_exception_functions[];
+extern const zend_function_entry hessian_exception_functions[];
+extern const zend_function_entry hessian_fault_functions[];
+
 
 #endif
 
