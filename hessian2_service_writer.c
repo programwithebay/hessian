@@ -87,7 +87,9 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 		return $stream;
 	*/
 
-	ZVAL_STRING(&param1, sprintf("call %s", Z_STRVAL_P(method)), 1);
+	char msg_buf[100];
+	sprintf(msg_buf, "call %s", Z_STRVAL_P(method));
+	ZVAL_STRING(&param1, msg_buf, 1);
 	call_params[0] = &param1;
 	ZVAL_STRING(&function_name, "logMsg", 1);
 	call_user_function(NULL, &self, &function_name, NULL, 1, call_params TSRMLS_DC);
@@ -96,7 +98,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 
 	//$stream = $this->writeVersion();
 	ZVAL_STRING(&function_name, "writeVersion", 1);
-	call_user_function(NULL, &self, &function_name, stream, 0, params TSRMLS_DC);
+	call_user_function(NULL, &self, &function_name, stream, 0, call_params TSRMLS_DC);
 	if (Z_TYPE_P(stream) != IS_STRING || Z_STRLEN_P(stream) < 1){
 		php_error_docref(NULL, E_WARNING, "call stream->writeVersion error");
 		return;
@@ -144,7 +146,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(params), (void **)&src_entry, &pos) == SUCCESS) {
 		
 		call_params[0] = src_entry;
-		call_user_function(NULL, &self, &function_name, params_ptr[i], 1, params TSRMLS_DC);
+		call_user_function(NULL, &self, &function_name, params_ptr[i], 1, call_params TSRMLS_DC);
 		buf_size += Z_STRLEN_P(params_ptr[i]);
 		i++;
 		zend_hash_move_forward_ex(Z_ARRVAL_P(params), &pos);

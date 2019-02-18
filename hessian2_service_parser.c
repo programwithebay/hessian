@@ -158,7 +158,8 @@ static PHP_METHOD(Hessian2ServiceParser, parseTop)
 		zend_throw_exception(hessian_fault_entry, "code is empty", 0 TSRMLS_DC);
 		return;
 	}
-
+	
+	char msg_buf[100];
 	switch(Z_STRVAL(code)[0]){
 		case 'R':
 			ZVAL_STRING(&function_name, "parseReply",  1);
@@ -177,8 +178,8 @@ static PHP_METHOD(Hessian2ServiceParser, parseTop)
 			call_user_function(NULL, &self, &function_name, value, 0, params TSRMLS_DC);
 			break;
 		default:
-			zend_throw_exception(hessian_fault_entry, sprintf("Code %s not recognized as a top element", Z_STRVAL(code)[0])
-				, 0 TSRMLS_DC);
+			sprintf(msg_buf, "Code %s not recognized as a top element", Z_STRVAL(code)[0]);
+			zend_throw_exception(hessian_fault_entry, msg_buf, 0 TSRMLS_DC);
 	}
 }
 

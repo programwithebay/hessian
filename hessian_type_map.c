@@ -84,7 +84,7 @@ char* hessian_type_map_rule_to_regexp(zval *string){
 	//return '/' . str_replace('*', self::REG_ALL, $rule) . '/';
 
 	ZVAL_STRING(&param1, "*", 1);
-	ZVAL_STRING(&param2, "([_0-9a-z\-]*)", 1);
+	ZVAL_STRING(&param2, "([_0\-9a\-z\-]*)", 1);
 	params[0] = &param1;
 	params[1] = &param2;
 	params[2] = rule;
@@ -266,7 +266,7 @@ static PHP_METHOD(HessianTypeMap, getLocalType)
 	types = zend_read_property(NULL, self, ZEND_STRL("types"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(types) == IS_ARRAY){
 		zval *local;
-		if (SUCCESS == zend_hash_find(Z_ARRVAL_P(types), Z_STRVAL_P(remote_type), Z_STRLEN_P(remote_type), &local)){
+		if (SUCCESS == zend_hash_find(Z_ARRVAL_P(types), Z_STRVAL_P(remote_type), Z_STRLEN_P(remote_type), (void **)&local)){
 			if(strcmp(Z_STRVAL_P(local), "array") == 0){
 				RETURN_ZVAL(local, 1, NULL);
 			}else{
@@ -326,7 +326,7 @@ static PHP_METHOD(HessianTypeMap, getRemoteType)
 		return $localType;
 	*/
 	char *str_key;
-	uint *num_index;
+	ulong num_index;
 	zval function_name, rule;
 	zval *params[2];
 	zval *preg_res;

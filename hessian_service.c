@@ -62,6 +62,33 @@ zend_class_entry *hessian_service_entry;
 
 
 /*
+	call user function helper
+*/
+void call_user_function_helper(zval *fun, zval *params, zval *retval_ptr, HashTable *function_table){
+	zend_fcall_info *fci;
+	zend_fcall_info_cache *fci_cache;
+	char *is_callable_error;
+
+	fci = emalloc(sizeof(zend_fcall_info));
+	fci_cache = emalloc(sizeof(zend_fcall_info_cache));
+	fci->function_table = function_table;
+	if (zend_fcall_info_init(fun, 0, fci, fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
+	}else{
+		return;
+	}
+
+	zend_fcall_info_args(fci, params TSRMLS_CC);
+	fci->retval_ptr_ptr = &retval_ptr;
+
+	if (zend_call_function(fci, fci_cache TSRMLS_CC) == SUCCESS && fci->retval_ptr_ptr && *(fci->retval_ptr_ptr)) {
+		//COPY_PZVAL_TO_ZVAL(*return_value, *(fci->retval_ptr_ptr));
+	}
+
+	zend_fcall_info_args_clear(fci, 1);
+}
+
+
+/*
 	HessianService::__construct
 */
 static PHP_METHOD(HessianService, __construct)

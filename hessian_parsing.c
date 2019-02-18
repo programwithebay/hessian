@@ -174,7 +174,7 @@ static PHP_METHOD(HessianRef, __construct)
 		ALLOC_ZVAL(index);
 		INIT_ZVAL(*index);
 		cnt = zend_hash_num_elements(Z_ARRVAL_P(list));
-		ZVAL_LONG(&index, cnt - 1);
+		ZVAL_LONG(index, cnt - 1);
 		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), index TSRMLS_DC);
 	}else{
 		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), list TSRMLS_DC);

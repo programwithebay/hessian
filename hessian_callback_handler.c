@@ -122,7 +122,7 @@ static PHP_METHOD(HessianCallbackHandler, getCallback)
 	if (Z_TYPE_P(obj) != IS_OBJECT){
 		RETURN_FALSE;
 	}
-	dup = zend_get_object_classname(obj, &class_name, &class_name_len TSRMLS_DC);
+	dup = zend_get_object_classname(obj, (const char**)&class_name, &class_name_len TSRMLS_DC);
 	not_found = zend_read_property(hessian_callback_handler_entry, self, ZEND_STRL("notFound"), 0 TSRMLS_DC);
 	if (SUCCESS == zend_hash_find(HASH_OF(not_found), class_name, class_name_len, (void **)&value_ptr)){
 		RETURN_FALSE;

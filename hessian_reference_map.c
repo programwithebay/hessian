@@ -65,7 +65,7 @@ static PHP_METHOD(HessianReferenceMap, incReference)
 	zval *obj, *self;
 	zval *hessian_ref, *object_list, object_count, *ref_list;
 	zval function_name;
-	zval *params;
+	zval *params[2];
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &obj) == FAILURE) {
 		RETURN_FALSE;
@@ -88,7 +88,7 @@ static PHP_METHOD(HessianReferenceMap, incReference)
 	}
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "__construct", 1);
-	params[0] = object_count;
+	params[0] = &object_count;
 	call_user_function(NULL, &hessian_ref, &function_name, NULL, 1, params TSRMLS_CC);
 
 	
@@ -119,7 +119,7 @@ static PHP_METHOD(HessianReferenceMap, getClassIndex)
 	char *class_name;
 	int class_len;
 	zval *class_list;
-	HashPosition *pos;
+	HashPosition pos;
 	zval *src_entry;
 	char *var_name;
 	uint var_len;
@@ -197,7 +197,7 @@ static PHP_METHOD(HessianReferenceMap, addClassDef)
 static PHP_METHOD(HessianReferenceMap, getReference)
 {
 	zval *self, *object, *object_list;
-	HashPosition *pos;
+	HashPosition pos;
 	zval *entry;
 	zval *result;
 
@@ -227,7 +227,7 @@ static PHP_METHOD(HessianReferenceMap, getReference)
 static PHP_METHOD(HessianReferenceMap, getTypeIndex)
 {
 	zval *self, *type, *type_list;
-	HashPosition *pos;
+	HashPosition pos;
 	zval *entry;
 	zval *result;
 
