@@ -2478,7 +2478,7 @@ static PHP_METHOD(Hessian2Parser, reference)
 
 
 //Hessian2Parser functions
-const zend_function_entry hessian2_writer_functions[] = {
+const zend_function_entry hessian2_parser_functions[] = {
 	PHP_ME(Hessian2Parser, __construct, arginfo_hessian2_parser_construct, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, setStream, arginfo_hessian2_parser_set_stream, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, setTypeMap, arginfo_hessian2_parser_set_type_map, ZEND_ACC_PUBLIC)

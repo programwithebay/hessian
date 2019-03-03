@@ -21,7 +21,7 @@
 #include "php.h"
 #include "php_ini.h"
 #include "hessian_common.h"
-#include "php_hessian_init.h"
+#include "php_hessian_int.h"
 
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_fault_construct, 0, 0, 2)
