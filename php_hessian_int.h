@@ -63,6 +63,8 @@ extern zend_class_entry *hessian_client_entry;
 extern zend_class_entry *hessian_object_factory_entry;
 extern zend_class_entry *hessian_client_entry;
 extern zend_class_entry *ihessian_object_factory_entry;
+extern zend_class_entry *hessian_datetime_adapter_entry;
+
 extern zend_class_entry *ihessian_custom_writer_entry;
 extern zend_class_entry *ihessian_interceptor_entry;
 extern zend_class_entry *hessian_calling_context_entry;
@@ -91,6 +93,7 @@ extern zend_class_entry *hessian_service_entry;
 extern zend_class_entry *hessian_parsing_exception_entry;
 extern zend_class_entry *hessian_exception_entry;
 extern zend_class_entry *hessian_fault_entry;
+extern zend_class_entry *hessian_options_entry;
 
 
 
@@ -108,6 +111,8 @@ extern const zend_function_entry hessian_client_functions[];
 extern const zend_function_entry hessian_object_factory_functions[];
 extern const zend_function_entry hessian_client_functions[];
 extern const zend_function_entry ihessian_object_factory_functions[];
+extern const zend_function_entry hessian_datetime_adapter_functions[];
+
 extern const zend_function_entry  ihessian_custom_writer_functions[];
 extern const zend_function_entry  hessian_calling_context_functions[];
 extern const zend_function_entry  ihessian_interceptor_functions[];
@@ -134,6 +139,8 @@ extern const zend_function_entry hessian_service_functions[];
 extern const zend_function_entry hessian_parsing_exception_functions[];
 extern const zend_function_entry hessian_exception_functions[];
 extern const zend_function_entry hessian_fault_functions[];
+extern const zend_function_entry hessian_options_functions[];
+extern const zend_function_entry hessian_factory_functions[];
 
 
 #endif

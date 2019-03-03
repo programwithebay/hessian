@@ -191,7 +191,9 @@ void register_hessian_ext_class(){
 	zend_declare_property_null(hessian_client_entry, ZEND_STRL("typemap"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_client_entry, ZEND_STRL("factory"), ZEND_ACC_PUBLIC TSRMLS_CC);
 
+	//
 
+	
 	//Hessian Interfaces
 	INIT_CLASS_ENTRY(ce_ihessian_object_factory, "IHessianObjectFactory", ihessian_object_factory_functions);
 	ihessian_object_factory_entry = zend_register_internal_interface(&ce_ihessian_object_factory TSRMLS_CC);
@@ -211,12 +213,33 @@ void register_hessian_ext_class(){
 	zend_declare_property_null(hessian_calling_context_entry, "payload", sizeof("payload")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_calling_context_entry, "error", sizeof("error")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
 
-	
+
+	//HessianOptions
+	zend_class_entry ce_ihessian_options;
+	INIT_CLASS_ENTRY(ce_ihessian_options, "HessianOptions", hessian_options_functions);
+	hessian_options_entry = zend_register_internal_interface(&ce_ihessian_options TSRMLS_CC);
+	zend_declare_property_long(hessian_options_entry, "version", sizeof("version")-1,  2, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "transportOptions", sizeof("transportOptions")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_bool(hessian_options_entry, "detectVersion", sizeof("detectVersion")-1, 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "objectFactory", sizeof("objectFactory")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "typeMap", sizeof("typeMap")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_bool(hessian_options_entry, "strictTypes", sizeof("strictTypes")-1,  0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "headers", sizeof("headers")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "interceptors", sizeof("interceptors")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "timeZone", sizeof("timeZone")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_bool(hessian_options_entry, "saveRaw", sizeof("saveRaw")-1, 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_string(hessian_options_entry, "serviceName", sizeof("serviceName")-1, "", ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_bool(hessian_options_entry, "displayInfo", sizeof("displayInfo")-1, 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_bool(hessian_options_entry, "ignoreOutput", sizeof("ignoreOutput")-1, 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "parseFilters", sizeof("parseFilters")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "writeFilters", sizeof("writeFilters")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "before", sizeof("before")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_options_entry, "after", sizeof("after")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+
 	
 	INIT_CLASS_ENTRY(ce_hessian_interceptor, "IHessianInterceptor", ihessian_interceptor_functions);
 	ihessian_interceptor_entry = zend_register_internal_interface(&ce_hessian_interceptor TSRMLS_CC);
 
-	
 	
 	//register HessianObjectFactory Class
 	INIT_CLASS_ENTRY(ce_hessian_object_factory, "HessianObjectFactory", hessian_object_factory_functions);
@@ -225,6 +248,12 @@ void register_hessian_ext_class(){
 	zend_class_implements(hessian_object_factory_entry , 1, ihessian_object_factory_entry TSRMLS_CC);
 	zend_declare_property_null(hessian_object_factory_entry, "options", sizeof("options")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
 
+	zend_class_entry ce_hessian_datetime_adapter, ce_hessian_factory;
+	INIT_CLASS_ENTRY(ce_hessian_datetime_adapter, "HessianDatetimeAdapter", hessian_datetime_adapter_functions);
+	hessian_datetime_adapter_entry = zend_register_internal_class(&ce_hessian_datetime_adapter TSRMLS_CC);
+	
+	INIT_CLASS_ENTRY(ce_hessian_factory, "HessianFactory", hessian_factory_functions);
+	hessian_factory_entry = zend_register_internal_class(&ce_hessian_factory TSRMLS_CC);
 
 
 	//HessianIgnoreCode && HessianClassDef
@@ -267,6 +296,16 @@ void register_hessian_ext_class(){
 	INIT_CLASS_ENTRY(ce_hessian_stream_result, "HessianStreamResult", hessian_stream_result_functions);
 	hessian_stream_result_entry= zend_register_internal_class(&ce_hessian_stream_result TSRMLS_CC);
 
+	//HessianReferenceMap
+	zend_class_entry ce_hessian_reference_map;
+	INIT_CLASS_ENTRY(ce_hessian_reference_map, "HessianReferenceMap", hessian_reference_map_functions);
+	hessian_reference_map_entry = zend_register_internal_class(&ce_hessian_reference_map TSRMLS_CC);
+	zend_declare_property_null(hessian_call_entry, "reflist", sizeof("reflist")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_call_entry, "typelist", sizeof("typelist")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_call_entry, "classlist", sizeof("classlist")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_call_entry, "objectlist", sizeof("objectlist")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+
+	
 	//HessinaStream
 	zend_class_entry ce_hessian_stream;
 	INIT_CLASS_ENTRY(ce_hessian_stream, "HessianStream", hessian_stream_functions);
