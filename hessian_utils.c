@@ -299,7 +299,7 @@ static PHP_METHOD(HessianUtils, floatBytes)
 		return self::$littleEndian ? strrev($bytes) : $bytes; 
 	*/
 
-	little_endian = zend_read_property(hessian_util_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	little_endian = zend_read_property(hessian_utils_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
 	ZVAL_STRING(&function_name, "pack", 1);
 	ZVAL_STRING(&param1, "s", 1);
 	params[0] = &param1;
@@ -355,7 +355,7 @@ static PHP_METHOD(HessianUtils, doubleBytes)
 		return self::$littleEndian ? strrev($bytes) : $bytes; 
 	*/
 
-	little_endian = zend_read_property(hessian_util_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	little_endian = zend_read_property(hessian_utils_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
 	ZVAL_STRING(&function_name, "pack", 1);
 	ZVAL_STRING(&param1, "d", 1);
 	params[0] = &param1;

@@ -549,7 +549,7 @@ const zend_function_entry hessian_object_factory_functions[] = {
 //HessianClient functions
 const zend_function_entry hessian_datetime_adapter_functions[] = {
 	PHP_ME(HessianDatetimeAdapter, toObject, 	arginfo_hessian_datetime_adapter_to_object,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
-	PHP_ME(HessianDatetimeAdapter, toObject, 	arginfo_hessian_datetime_adapter_write_time,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	PHP_ME(HessianDatetimeAdapter, writeTime, 	arginfo_hessian_datetime_adapter_write_time,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

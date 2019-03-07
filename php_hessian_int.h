@@ -77,7 +77,7 @@ extern zend_class_entry *hessian_stream_entry;
 extern zend_class_entry *ihessian_transport_entry;
 extern zend_class_entry *hessian_curl_transport_entry;
 extern zend_class_entry *hessian_type_map_entry;
-extern zend_class_entry *hessian_util_entry;
+extern zend_class_entry *hessian_utils_entry;
 extern zend_class_entry *hessian2_iterator_writer_entry;
 extern zend_class_entry *hessian2_parser_entry;
 extern zend_class_entry *hessian2_service_parser_entry;

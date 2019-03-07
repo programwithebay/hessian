@@ -215,9 +215,9 @@ void register_hessian_ext_class(){
 
 
 	//HessianOptions
-	zend_class_entry ce_ihessian_options;
-	INIT_CLASS_ENTRY(ce_ihessian_options, "HessianOptions", hessian_options_functions);
-	hessian_options_entry = zend_register_internal_interface(&ce_ihessian_options TSRMLS_CC);
+	zend_class_entry ce_hessian_options;
+	INIT_CLASS_ENTRY(ce_hessian_options, "HessianOptions", hessian_options_functions);
+	hessian_options_entry = zend_register_internal_class(&ce_hessian_options TSRMLS_CC);
 	zend_declare_property_long(hessian_options_entry, "version", sizeof("version")-1,  2, ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_options_entry, "transportOptions", sizeof("transportOptions")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_bool(hessian_options_entry, "detectVersion", sizeof("detectVersion")-1, 0, ZEND_ACC_PUBLIC TSRMLS_CC);
@@ -335,12 +335,12 @@ void register_hessian_ext_class(){
 	zend_declare_property_null(hessian_type_map_entry, "remoteRules", sizeof("remoteRules")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
 
 	INIT_CLASS_ENTRY(ce_hessian_utils, "HessianUtils", hessian_utils_functions);
-	hessian_util_entry =  zend_register_internal_class(&ce_hessian_utils TSRMLS_CC);
-	zend_declare_property_null(hessian_util_entry, "littleEndian", sizeof("littleEndian")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	hessian_utils_entry =  zend_register_internal_class(&ce_hessian_utils TSRMLS_CC);
+	zend_declare_property_null(hessian_utils_entry, "littleEndian", sizeof("littleEndian")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
 	
 	zval *pow32;
 	ALLOC_ZVAL(pow32);
-	zend_declare_class_constant_long(hessian_util_entry, "pow32", sizeof("pow32")-1, 4294967296L TSRMLS_CC);
+	zend_declare_class_constant_long(hessian_utils_entry, "pow32", sizeof("pow32")-1, 4294967296L TSRMLS_CC);
 
 	//Hessian2Writer
 	zend_class_entry ce_hessian2_writer;
