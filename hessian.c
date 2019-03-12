@@ -273,12 +273,12 @@ void register_hessian_ext_class(){
 	zend_class_entry ce_hessian_service;
 	INIT_CLASS_ENTRY(ce_hessian_service, "HessianService", hessian_service_functions);
 	hessian_service_entry = zend_register_internal_class(&ce_hessian_service TSRMLS_CC);
-	zend_declare_property_bool(hessian_call_entry, "fault", sizeof("fault")-1, 0, ZEND_ACC_PROTECTED TSRMLS_CC);
-	zend_declare_property_null(hessian_call_entry, "options", sizeof("options")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
-	zend_declare_property_null(hessian_call_entry, "service", sizeof("service")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
-	zend_declare_property_null(hessian_call_entry, "reflected", sizeof("reflected")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
-	zend_declare_property_null(hessian_call_entry, "typemap", sizeof("typemap")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
-	zend_declare_property_null(hessian_call_entry, "factory", sizeof("factory")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_bool(hessian_service_entry, "fault", sizeof("fault")-1, 0, ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_service_entry, "options", sizeof("options")-1,  ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_service_entry, "service", sizeof("service")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_service_entry, "reflected", sizeof("reflected")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_service_entry, "typemap", sizeof("typemap")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
+	zend_declare_property_null(hessian_service_entry, "factory", sizeof("factory")-1,	ZEND_ACC_PROTECTED TSRMLS_CC);
 
 	
 	zend_class_entry ce_hessian_call, ce_hessian_ref;
@@ -383,9 +383,13 @@ void register_hessian_ext_class(){
 	
 	//HessianParsingException
 	zend_class_entry ce_hessian_parsing_exception, ce_hessian_fault, ce_hessian_exception;
-	zend_class_entry *ce_exception;
+	zend_class_entry *ce_exception, **p_ce_exception;
 
-	ce_exception = zend_fetch_class("Exception", strlen("Exception")-1 , 0 TSRMLS_CC);
+	//ce_exception = zend_fetch_class("Exception", sizeof("Exception")-1 , 0 TSRMLS_CC);
+	zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &p_ce_exception);
+	ce_exception = *p_ce_exception;
+
+	
 	INIT_CLASS_ENTRY(ce_hessian_parsing_exception, "HessianParsingException", hessian_parsing_exception_functions);
 	hessian_parsing_exception_entry =  zend_register_internal_class_ex(&ce_hessian_parsing_exception, ce_exception, NULL TSRMLS_CC);
 	zend_declare_property_null(hessian_parsing_exception_entry, "position", sizeof("position")-1, ZEND_ACC_PUBLIC TSRMLS_CC);

@@ -106,6 +106,7 @@ static PHP_METHOD(DubboStorageFactory, create)
 	}
 	if(Z_TYPE_P(array) != IS_ARRAY){
 		php_error_docref(NULL, E_ERROR, "param is not an array");
+		return;
 	}
 	if (0 == strncasecmp(type, "file", 4)){
 
@@ -120,8 +121,14 @@ static PHP_METHOD(DubboStorageFactory, create)
 		object_init_ex(return_value, dubbo_file_storage_class_entry);
 		Z_SET_REFCOUNT_P(return_value, 1);
 		Z_SET_ISREF_P(return_value);
+		
 		//call _construct function
-	
+		zval function_name, ret_val;
+		zval *params[1];
+
+		params[0] = array;
+		ZVAL_STRING(&function_name, "__construct", 1);
+		call_user_function(NULL, &return_value, &function_name, &ret_val, 1, params TSRMLS_CC);
 	}else{
 		//TODO:Å×³öÒì³£
 		php_error_docref(NULL, E_ERROR, "unsupport storage:%s", type);

@@ -161,7 +161,7 @@ static PHP_METHOD(DubboClient, __construct)
 	zval *array;
 	zval* self;
 	zval config_array;
-	zval *storage, *config_file, *servic_config, *dto_map, *redis_config;
+	zval *storage, *config_file, *service_config, *dto_map, *redis_config;
 	zval *storage_obj;
 	zval *new_config;
 	zval** value_ptr;
@@ -232,17 +232,20 @@ static PHP_METHOD(DubboClient, __construct)
 	if (Z_TYPE(config_array) != IS_ARRAY){
 		php_error_docref(NULL, E_ERROR, "file %s is not a json file", Z_STRVAL_P(config_file));
 	}
-	if (FAILURE == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("zk"), (void **)&value_ptr)){
-		php_error_docref(NULL, E_ERROR, "configFile zk is not set");
+	if (FAILURE == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("service"), (void **)&value_ptr)){
+		php_error_docref(NULL, E_ERROR, "configFile service is not set");
 	}
-	servic_config = *value_ptr;
+	service_config = *value_ptr;
+
+	/*
 	//isset redis?
 	if (SUCCESS == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("redis"), (void **)&value_ptr)){
 		redis_config = *value_ptr;
 		php_array_merge(Z_ARRVAL_P(servic_config), Z_ARRVAL_P(redis_config), 0 TSRMLS_CC);
 		//zend_hash_merge(Z_ARRVAL_P(redis_config), Z_ARRVAL_P(redis_config), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 	}
-	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("serviceConfig"),  servic_config);
+	*/
+	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("serviceConfig"),  service_config);
 	if (FAILURE == zend_hash_find(HASH_OF(&config_array), ZEND_STRS("dtoMap"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "configFile dtoMap is not set");
 	}
@@ -481,25 +484,26 @@ static PHP_METHOD(DubboClient, callService)
 		php_error_docref(NULL, E_WARNING, "DubboClient::serviceConfig is not an array");
 		return;
 	}
-	if (SUCCESS != zend_hash_find(HASH_OF(service_config), Z_STRVAL_P(arg_service_name),Z_STRLEN_P(arg_service_name), (void **)&value_ptr)){
+	if (SUCCESS != zend_hash_find(HASH_OF(service_config), Z_STRVAL_P(arg_service_name)
+		,Z_STRLEN_P(arg_service_name)+1, (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "serviceConfig:%s is not set", Z_STRVAL_P(arg_service_name));
 		return;
 	}
 	service_config = *value_ptr;
 	//ser version and group
-	if (SUCCESS != zend_hash_find(HASH_OF(service_config), ZEND_STRL("version"), (void **)&value_ptr)){
+	if (SUCCESS != zend_hash_find(HASH_OF(service_config), ZEND_STRS("version"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "serviceConfig['version'] is not set");
 		return;
 	}
-	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("version"), *value_ptr TSRMLS_DC);
-	if (SUCCESS != zend_hash_find(HASH_OF(service_config), ZEND_STRL("group"), (void **)&value_ptr)){
+	zend_update_property(dubbo_client_class_entry, self, ZEND_STRS("version"), *value_ptr TSRMLS_DC);
+	if (SUCCESS != zend_hash_find(HASH_OF(service_config), ZEND_STRS("group"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "serviceConfig['group'] is not set");
 		return;
 	}
-	zend_update_property(dubbo_client_class_entry, self, ZEND_STRL("group"), *value_ptr TSRMLS_DC);
+	zend_update_property(dubbo_client_class_entry, self, ZEND_STRS("group"), *value_ptr TSRMLS_DC);
 
 	//dtomap
-	dtomap= zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("dtoMapConfig"), 1 TSRMLS_DC);
+	dtomap= zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("dtoMapConfig"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(dtomap) ==  IS_ARRAY){
 		//$service->setDtoMap($this->dtoMapConfig);
 		INIT_ZVAL(function_name);
@@ -524,8 +528,10 @@ static PHP_METHOD(DubboClient, callService)
 	set_option_2param(cls_service_ptr, self, "side", 0);
 	//set pid
 	pid = getpid();
+	ALLOC_ZVAL(property);
 	ZVAL_LONG(property, pid);
 	set_option_2param(cls_service_ptr, self, "pid", property);
+	FREE_ZVAL(property);
 
 	//default return is false
 	RETVAL_FALSE;

@@ -354,7 +354,7 @@ const zend_function_entry hessian2_service_parser_functions[] = {
 	PHP_ME(Hessian2ServiceParser, parseReply, arginfo_hessian2_parser_parse_top, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2ServiceParser, parseCall, arginfo_hessian2_parser_parse_call, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2ServiceParser, parseFault, arginfo_hessian2_parser_parse_fault, ZEND_ACC_PUBLIC)
-	PHP_ME(Hessian2ServiceParser, parseFault, arginfo_hessian2_parser_parse_fault, ZEND_ACC_PUBLIC)
+	//PHP_ME(Hessian2ServiceParser, parseFault, arginfo_hessian2_parser_parse_fault, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2ServiceParser, parseEnvelope, arginfo_hessian2_parser_parse_envelope, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2ServiceParser, parsePacket, arginfo_hessian2_parser_parse_packet, ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
