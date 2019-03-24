@@ -136,14 +136,17 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 	return $options;
 	*/
 
-	if (instanceof_function(Z_OBJCE_P(object), hessian_options_entry)){
-		RETURN_ZVAL(object, 0, NULL);
-	}else if (Z_TYPE_P(object) == IS_ARRAY){
+	if (Z_TYPE_P(object) == IS_ARRAY){
 		hessian_options_from_array(options, object);
 	}else if (Z_TYPE_P(object) == IS_OBJECT){
-		convert_to_array(object);
-		hessian_options_from_array(options, object);
+		if (instanceof_function(Z_OBJCE_P(object), hessian_options_entry)){
+			RETURN_ZVAL(object, 0, NULL);
+		}else{
+			convert_to_array(object);
+			hessian_options_from_array(options, object);
+		}
 	}
+
 
 	RETURN_ZVAL(options, 0, NULL);
 }
@@ -152,7 +155,7 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 //HessianOptions  functions
 const zend_function_entry hessian_options_functions[] = {
 	PHP_ME(HessianOptions, fromArray,		arginfo_hessian_options_from_array,		ZEND_ACC_PUBLIC)
-	PHP_ME(HessianOptions, resolveOptions,		arginfo_hessian_options_resolve_options,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianOptions, resolveOptions,		arginfo_hessian_options_resolve_options,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

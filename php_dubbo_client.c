@@ -490,16 +490,21 @@ static PHP_METHOD(DubboClient, callService)
 		return;
 	}
 	service_config = *value_ptr;
+
+
+	zval *version, *group;
 	//ser version and group
 	if (SUCCESS != zend_hash_find(HASH_OF(service_config), ZEND_STRS("version"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "serviceConfig['version'] is not set");
 		return;
 	}
+	version = *value_ptr;
 	zend_update_property(dubbo_client_class_entry, self, ZEND_STRS("version"), *value_ptr TSRMLS_DC);
 	if (SUCCESS != zend_hash_find(HASH_OF(service_config), ZEND_STRS("group"), (void **)&value_ptr)){
 		php_error_docref(NULL, E_ERROR, "serviceConfig['group'] is not set");
 		return;
 	}
+	group = *value_ptr;
 	zend_update_property(dubbo_client_class_entry, self, ZEND_STRS("group"), *value_ptr TSRMLS_DC);
 
 	//dtomap
@@ -517,15 +522,30 @@ static PHP_METHOD(DubboClient, callService)
 	}
 	
 	//option
-	set_option_2param(cls_service_ptr,self, "version", 0);
-	set_option_2param(cls_service_ptr, self, "group", 0);
-	set_option_2param(cls_service_ptr, self, "connectTimeout", 0);
-	set_option_2param(cls_service_ptr, self, "executeTimeout", 0);
-	set_option_2param(cls_service_ptr, self,  "dubbo", 0);
-	set_option_2param(cls_service_ptr, self,  "loadbalance", 0);
-	set_option_2param(cls_service_ptr, self, "owner", 0);
-	set_option_2param(cls_service_ptr, self, "protocol", 0);
-	set_option_2param(cls_service_ptr, self, "side", 0);
+	set_option_2param(cls_service_ptr, self, "version", version);
+	set_option_2param(cls_service_ptr, self, "group", group);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("connectTimeout"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self, "connectTimeout", property);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("executeTimeout"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self, "executeTimeout", property);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("dubbo"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self,  "dubbo", property);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("loadbalance"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self,  "loadbalance", property);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("owner"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self, "owner", property);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("protocol"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self, "protocol", property);
+	
+	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRS("side"), 1 TSRMLS_DC);
+	set_option_2param(cls_service_ptr, self, "side", property);
+	
 	//set pid
 	pid = getpid();
 	ALLOC_ZVAL(property);

@@ -382,9 +382,9 @@ static PHP_METHOD(Hessian2Writer, resolveDispatch)
 		dispatch[len] = 0;
 	}else{
 		//throw new Exception("Handler for type $type not implemented");
-		zend_class_entry *ce_exception;
-		ce_exception = zend_fetch_class("Excepion", strlen("Exception")-1 ,0 TSRMLS_CC);
-		zend_throw_exception(ce_exception, sprintf("Handler for type %s not implemented", Z_STRVAL_P(type)), 0 TSRMLS_CC);
+		zend_class_entry **ce_exception;
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+		zend_throw_exception(*ce_exception, sprintf("Handler for type %s not implemented", Z_STRVAL_P(type)), 0 TSRMLS_CC);
 	}
 
 	//$this->logMsg("dispatch $dispatch");
@@ -1995,8 +1995,9 @@ static PHP_METHOD(Hessian2Writer, writeResource)
 
 		RETURN_STRING(buf, 0);
 	}else{
-		zend_class_entry *ce_exception;
-		ce_exception = zend_fetch_class("Exception", strlen("Exception")-1, 0 TSRMLS_DC);
+		zend_class_entry **ce_exception;
+		
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
 		zend_throw_exception(ce_exception, sprintf("Cannot handle resource of type '%s'", Z_STRVAL_P(type))
 			, 0 TSRMLS_DC);
 	}

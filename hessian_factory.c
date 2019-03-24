@@ -219,6 +219,57 @@ zval* hessian_object_factory_load_version2(zval *self, char *mode, zval *stream,
 	}
 }
 
+
+/*
+	HessianFactory::getTransport
+*/
+void hessian_factory_get_transport(zval *self, zval *options, zval *return_value)
+{
+	zval *type, *transports;
+	zval *writer;
+	zval obj_factory;
+	zval *class;
+	zval function_name;
+	zend_class_entry *ce_hessian_exception, *ce_class;
+
+	/*
+		$type = $options->transport;
+		if(is_object($type))
+			return $type;
+		if(!isset($this->transports[$type]))
+			throw new HessianException("The transport of type $type cannot be found");
+		$class = $this->transports[$type];
+		$trans = new $class();
+		$trans->testAvailable();
+		return $trans; 
+	*/
+
+	type = zend_read_property(NULL, options, ZEND_STRL("transport"), 1 TSRMLS_DC);
+	if (Z_TYPE_P(type) == IS_OBJECT){
+		RETURN_ZVAL(type, 0, NULL);
+	}
+
+	transports = zend_read_property(NULL, self, "transports", strlen("transports")-1, 1 TSRMLS_DC);
+	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(transports), Z_STRVAL_P(type), Z_STRLEN_P(type), (void**)&class)){
+		zend_throw_exception(ce_hessian_exception, sprintf("The transport of type %s cannot be found", Z_STRVAL_P(type))
+			,0 TSRMLS_DC);
+		return;
+	}
+
+	ce_class = zend_fetch_class(Z_STRVAL_P(class), Z_STRLEN_P(class), 0 TSRMLS_DC);
+	if (!ce_class){
+		php_error_docref(NULL, E_WARNING, "class %s not found", Z_STRVAL_P(class));
+		return;
+	}
+
+	object_init_ex(return_value, ce_class);
+	INIT_ZVAL(function_name);
+	ZVAL_STRING(&function_name, "testAvailable", 1);
+	call_user_function(NULL, &return_value, &function_name, NULL, 0, NULL TSRMLS_CC);
+}
+
+
+
 /*
 	HessianObjectFactory::setOptions
 */
@@ -386,23 +437,30 @@ static PHP_METHOD(HessianFactory, __construct)
 	self = getThis();
 	
 	ALLOC_ZVAL(arr1);
-	array_init_size(protocols, 2);
+	array_init_size(arr1, 2);
 	zend_hash_next_index_insert(Z_ARRVAL_P(arr1),self, sizeof(zval*), NULL);
+	
 	ALLOC_ZVAL(version1);
 	ZVAL_STRING(version1, "loadVersion1", 1);
 	zend_hash_next_index_insert(Z_ARRVAL_P(arr1),version1, sizeof(zval*), NULL);
+	
 	ALLOC_ZVAL(arr2);
-	ZVAL_STRING(version1, "loadVersion2", 1);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr2),self, sizeof(zval*), NULL);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr2),version2, sizeof(zval*), NULL);
+	array_init_size(arr2, 2);
+	ALLOC_ZVAL(version2);
+	ZVAL_STRING(version2, "loadVersion2", 1);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), self, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), version2, sizeof(zval*), NULL);
+
+
 
 
 	ALLOC_ZVAL(protocols);
 	array_init_size(protocols, 2);
 	zend_hash_add(Z_ARRVAL_P(protocols), "2", 1, arr2, sizeof(zval*), NULL);
 	zend_hash_add(Z_ARRVAL_P(protocols), "1", 1, arr1, sizeof(zval*), NULL);
-	
 	zend_update_property(hessian_factory_entry, self, ZEND_STRL("protocols"),  protocols TSRMLS_DC);
+
+	
 
 	//transports
 	ALLOC_ZVAL(transports);
@@ -489,50 +547,13 @@ static PHP_METHOD(HessianFactory, getWriter)
 */
 static PHP_METHOD(HessianFactory, getTransport)
 {
-	zval *self, *type, *transports;
-	zval *options, *writer;
-	zval obj_factory;
-	zval *class;
-	zval function_name;
-	zend_class_entry *ce_hessian_exception, *ce_class;
+	zval *self;
+	zval *options;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z",&options) == FAILURE) {
 		RETURN_FALSE;
 	}
-	/*
-		$type = $options->transport;
-		if(is_object($type))
-			return $type;
-		if(!isset($this->transports[$type]))
-			throw new HessianException("The transport of type $type cannot be found");
-		$class = $this->transports[$type];
-		$trans = new $class();
-		$trans->testAvailable();
-		return $trans; 
-	*/
-
-	type = zend_read_property(NULL, options, "transport", strlen("transport")-1, 1 TSRMLS_DC);
-	if (Z_TYPE_P(type) == IS_OBJECT){
-		RETURN_ZVAL(type, 0, NULL);
-	}
-
-	transports = zend_read_property(NULL, self, "transports", strlen("transports")-1, 1 TSRMLS_DC);
-	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(transports), Z_STRVAL_P(type), Z_STRLEN_P(type), (void**)&class)){
-		zend_throw_exception(ce_hessian_exception, sprintf("The transport of type %s cannot be found", Z_STRVAL_P(type))
-			,0 TSRMLS_DC);
-		return;
-	}
-
-	ce_class = zend_fetch_class(Z_STRVAL_P(class), Z_STRLEN_P(class), 0 TSRMLS_DC);
-	if (!ce_class){
-		php_error_docref(NULL, E_WARNING, "class %s not found", Z_STRVAL_P(class));
-		return;
-	}
-
-	object_init_ex(return_value, ce_class);
-	INIT_ZVAL(function_name);
-	ZVAL_STRING(&function_name, "testAvailable", 1);
-	call_user_function(NULL, &return_value, &function_name, NULL, 0, NULL TSRMLS_CC);
+	hessian_factory_get_transport(self, options, return_value);
 }
 
 

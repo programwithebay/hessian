@@ -208,9 +208,10 @@ static PHP_METHOD(HessianService, registerObject)
 	
 	if (IS_OBJECT != Z_TYPE_P(service)){
 		//@todo error code
-		zend_class_entry *cls_exception;
-		cls_exception = zend_fetch_class("Exception", strlen("Exception")-1, 0 TSRMLS_DC);
-		zend_throw_exception(cls_exception, "Error registering service object",8 TSRMLS_DC);
+		zend_class_entry **ce_exception;
+
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+		zend_throw_exception(*ce_exception, "Error registering service object",8 TSRMLS_DC);
 		return;
 	}
 
@@ -702,10 +703,9 @@ static PHP_METHOD(HessianService, callMethod)
 		call_user_function_helper(fun, arg_params, ret_val, EG(function_table));
 		FREE_ZVAL(fun);
 	}else{
-		zend_class_entry *ce_exception;
-
-		ce_exception = zend_fetch_class("Exception", strlen("Exception")-1, 0 TSRMLS_DC);
-		zend_throw_exception(ce_exception, "Method $method is not callable", 8);
+		zend_class_entry **ce_exception;
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+		zend_throw_exception(*ce_exception, "Method $method is not callable", 8);
 	}
 }
 

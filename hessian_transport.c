@@ -59,10 +59,9 @@ static PHP_METHOD(HessianCURLTransport, testAvailable)
 	*/
 
 	if (zend_hash_find(EG(function_table), "curl_init", strlen("curl_init"), (void **)&func) != SUCCESS){
-		zend_class_entry *ce_exception;
-
-		ce_exception = zend_fetch_class("Exception", strlen("Exception") - 1, 0 TSRMLS_DC);
-		zend_throw_exception(ce_exception, "You need to enable the CURL extension to use the curl transport", 0);
+		zend_class_entry **ce_exception;
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+		zend_throw_exception(*ce_exception, "You need to enable the CURL extension to use the curl transport", 0);
 	}
 }
 
@@ -224,13 +223,13 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 
 	if (i_zend_is_true(curl_error)){
 		if (Z_TYPE_P(ch) == IS_RESOURCE){
-			zend_class_entry *ce_excetpion;
-
-			ce_excetpion = zend_fetch_class("Exception", strlen("Exception") - 1, 0);
+			zend_class_entry **ce_exception;
+			zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+			
 			ZVAL_STRING(&function_name, "curl_close", 1);
 			params[0] = ch;
 			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
-			zend_throw_exception(ce_excetpion, sprintf("CURL transport error: %s", Z_STRVAL_P(curl_error)), 0 TSRMLS_DC);
+			zend_throw_exception(*ce_exception, sprintf("CURL transport error: %s", Z_STRVAL_P(curl_error)), 0 TSRMLS_DC);
 			return;
 		}
 	}
@@ -251,9 +250,9 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 			params[0] = ch;
 			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
 		}
-		zend_class_entry *ce_excetpion;
-		ce_excetpion = zend_fetch_class("Exception", strlen("Exception") - 1, 0);
-		zend_throw_exception(ce_excetpion, sprintf("curl_exec error for url: %s", Z_STRVAL_P(url)), 0 TSRMLS_DC);
+		zend_class_entry **ce_exception;
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+		zend_throw_exception(*ce_exception, sprintf("curl_exec error for url: %s", Z_STRVAL_P(url)), 0 TSRMLS_DC);
 	}
 
 	/*
@@ -299,9 +298,10 @@ static PHP_METHOD(HessianCURLTransport, getStream)
 		sprintf(str_message, "Server error, returned HTTP code: %d Server sent:%s"
 			, Z_LVAL_P(curl_code), Z_STRVAL_P(result));
 		ZVAL_STRING(&message, str_message, 1);
-		zend_class_entry *ce_excetpion;
-		ce_excetpion = zend_fetch_class("Exception", strlen("Exception") - 1, 0);
-		zend_throw_exception(ce_excetpion, Z_STRVAL(message), 0 TSRMLS_DC);
+		
+		zend_class_entry **ce_exception;
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **)&ce_exception);
+		zend_throw_exception(*ce_exception, Z_STRVAL(message), 0 TSRMLS_DC);
 	}
 
 	zval *stream;

@@ -328,10 +328,9 @@ static PHP_METHOD(Hessian2ServiceParser, parseFault)
 */
 static PHP_METHOD(Hessian2ServiceParser, parseEnvelope)
 {
-	zend_class_entry *ce_exception;
-	
-	ce_exception = zend_fetch_class("Exception", strlen("Exception") - 1, 0 TSRMLS_DC);
-	zend_throw_exception(ce_exception, "Envelopes currently not supported", 0);
+	zend_class_entry **ce_exception;
+	zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+	zend_throw_exception(*ce_exception, "Envelopes currently not supported", 0);
 }
 
 /*
@@ -341,8 +340,8 @@ static PHP_METHOD(Hessian2ServiceParser, parsePacket)
 {
 	zend_class_entry *ce_exception;
 	
-	ce_exception = zend_fetch_class("Exception", strlen("Exception") - 1, 0 TSRMLS_DC);
-	zend_throw_exception(ce_exception, "Packetc currently not supported", 0);
+	zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
+	zend_throw_exception(*ce_exception, "Packetc currently not supported", 0);
 }
 
 

@@ -112,8 +112,8 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 	rule_remote = hessian_type_map_is_rule(remote);
 	if ( rule_local && rule_remote){
 		//throw new Exception('Typemap : Cannot use wildcards in both local and remote types');
-		zend_class_entry *ce_exception;
-		ce_exception = zend_fetch_class("Exception", strlen("Exception")-1, 0);
+		zend_class_entry **ce_exception;
+		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
 		zend_throw_exception(ce_exception, "Typemap : Cannot use wildcards in both local and remote types", 0);
 		return;
 	}
