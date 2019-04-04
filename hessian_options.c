@@ -59,13 +59,13 @@ static const char* hessian_options_property[18] = {
 //from array
 void hessian_options_from_array(zval *self, zval * array){
 	int i;
-	zval *array_value;
+	zval **array_value;
 	
 	for(i=0; i<18;i++){
 		if (SUCCESS == zend_hash_find(Z_ARRVAL_P(array), hessian_options_property[i]
 			, strlen(hessian_options_property[i]) - 1, (void **)&array_value)){
 			zend_update_property(hessian_options_entry, self, hessian_options_property[i]
-				, strlen(hessian_options_property[i])-1, array_value TSRMLS_DC);
+				, strlen(hessian_options_property[i])-1, *array_value TSRMLS_DC);
 		}
 	}
 }

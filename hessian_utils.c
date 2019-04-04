@@ -488,15 +488,33 @@ static PHP_METHOD(HessianUtils, isInternalUTF8)
 	RETURN_TRUE;
 }
 
+
+/*
+	HessianUtils::stringLength
+*/
+void hessian_utils_string_length(zval *string, zval *return_value)
+{
+	int len;
+	zval function_name;
+	zval *params[1];
+	zval res;
+	
+	params[0] = string;
+	ZVAL_STRING(&function_name, "mb_strlen", 1);
+	call_user_function(EG(function_table), NULL, &function_name, &res, 1, params TSRMLS_DC);
+	len = Z_LVAL(res);
+
+	RETURN_LONG(len);
+}
+
+
+
 /*
 	HessianUtils::stringLength
 */
 static PHP_METHOD(HessianUtils, stringLength)
 {
 	zval *string;
-	zval *self;
-	int len;
-	zend_function *func;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &string)) {
 		return;
@@ -504,32 +522,22 @@ static PHP_METHOD(HessianUtils, stringLength)
 	if (Z_TYPE_P(string) != IS_STRING){
 		return;
 	}
-	self = getThis();
 
-	len = Z_STRLEN_P(string);
-
-	/*
-	if(function_exists('mb_strlen')){
-		if(self::isInternalUTF8())
-			$len = mb_strlen($string, 'UTF-8');
-		else
-			$len = mb_strlen($string);
-	}
-	return $len;
-	*/
-
-	if (zend_hash_find(EG(function_table), Z_STRVAL_P(string), len+1, (void **)&func) == SUCCESS){
-		zval function_name;
-		zval *params[1];
-		zval *res;
-		
-		params[0] = string;
-		call_user_function(EG(function_table), NULL, &function_name, res, 1, params TSRMLS_DC);
-		len = Z_LVAL_P(res);
-	}else{
-	}
-	RETURN_LONG(len);
+	hessian_utils_string_length(string, return_value);
 }
+
+
+/*
+	HessianUtils::writeUTF8
+*/
+void hessian_utils_write_utf8(zval *string, zval *return_value)
+{
+
+	//$encoding = ini_get('mbstring.internal_encoding'); must be utf8
+	*return_value = *string;
+}
+
+
 
 
 /*
@@ -538,9 +546,6 @@ static PHP_METHOD(HessianUtils, stringLength)
 static PHP_METHOD(HessianUtils, writeUTF8)
 {
 	zval *string;
-	zval *self;
-	int len;
-	zend_function *func;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &string)) {
 		return;
@@ -548,10 +553,8 @@ static PHP_METHOD(HessianUtils, writeUTF8)
 	if (Z_TYPE_P(string) != IS_STRING){
 		return;
 	}
-	self = getThis();
 
-	len = Z_STRLEN_P(string);
-	RETURN_STRING(Z_STRVAL_P(string), 1);
+	hessian_utils_write_utf8(string, return_value);
 }
 
 

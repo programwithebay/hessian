@@ -48,57 +48,51 @@ ZEND_END_ARG_INFO()
 zend_class_entry *hessian2_service_writer_entry;
 
 
+/*
+	Hessian2ServiceWriter::writeVersion
+*/
+void hessian2_service_writer_write_version(zval *return_value)
+{
+	char buf[3];
+
+	//return "H\x02\x00";
+	buf[0] = 'H';
+	buf[1] = 2;
+	buf[2] = 0;
+
+	RETURN_STRINGL(buf,  3, 0);
+}
+
+
+
 
 /*
 	Hessian2ServiceWriter::writeCall
 */
-static PHP_METHOD(Hessian2ServiceWriter, writeCall)
+void hessian2_service_writer_write_call(zval *self, zval *method, zval *params, zval *return_value)
 {
-	zval *self;
-	zval *method, *params;
-	zval *write_string_res, *write_int_res;
+	zval write_string_res, write_int_res;
 	zval *stream;
 	zval function_name, param1;
 	zval *call_params[2];
 	char *buf;
 	ulong buf_size;
 	int i, params_count;
+	zval retval;
 
-	self = getThis();
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "za", &method, &params)) {
-		return;
-	}
-	if (Z_TYPE_P(method) != IS_STRING){
-		php_error_docref(NULL, E_WARNING, "method must be an string");
-		return;
-	}
-
-	/*
-		$this->logMsg("call $method");
-		
-		
-		
-	*/
-
-	/*
-	foreach($params as $param){
-			$stream .= $this->writeValue($param);
-		}
-		return $stream;
-	*/
 
 	char msg_buf[100];
 	sprintf(msg_buf, "call %s", Z_STRVAL_P(method));
 	ZVAL_STRING(&param1, msg_buf, 1);
 	call_params[0] = &param1;
 	ZVAL_STRING(&function_name, "logMsg", 1);
-	call_user_function(NULL, &self, &function_name, NULL, 1, call_params TSRMLS_DC);
+	call_user_function(NULL, &self, &function_name, &retval, 1, call_params TSRMLS_DC);
 
 	
 
 	//$stream = $this->writeVersion();
-	ZVAL_STRING(&function_name, "writeVersion", 1);
-	call_user_function(NULL, &self, &function_name, stream, 0, call_params TSRMLS_DC);
+	ALLOC_ZVAL(stream);
+	hessian2_service_writer_write_version(stream);
 	if (Z_TYPE_P(stream) != IS_STRING || Z_STRLEN_P(stream) < 1){
 		php_error_docref(NULL, E_WARNING, "call stream->writeVersion error");
 		return;
@@ -109,19 +103,14 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 	//$stream .= 'C';
 	
 	//$stream .= $this->writeString($method);
-	ZVAL_STRING(&function_name, "writeString", 1);
-	call_params[0] = method;
-	call_user_function(NULL, &self, &function_name, write_string_res, 1, call_params TSRMLS_DC);
+	hessian2_writer_write_string(self, method, &write_string_res);
+
 
 	//$stream .= $this->writeInt(count($params));
-	ZVAL_STRING(&function_name, "writeInt", 1);
-	Z_TYPE(param1) = IS_LONG;
-	Z_LVAL(param1) = params_count;
-	call_params[0] = &param1;
-	call_user_function(NULL, &self, &function_name, write_int_res, 1, call_params TSRMLS_DC);
+	hessian2_writer_write_int(self, params_count, &write_int_res);
 
-	buf_size += Z_STRLEN_P(write_string_res);
-	buf_size += Z_STRLEN_P(write_int_res);
+	buf_size += Z_STRLEN(write_string_res);
+	buf_size += Z_STRLEN(write_int_res);
 
 	
 	zval **params_ptr;
@@ -164,17 +153,40 @@ static PHP_METHOD(Hessian2ServiceWriter, writeCall)
 	p += Z_STRLEN_P(stream);
 	*p = 'C';
 	++p;
-	memcpy(p, Z_STRVAL_P(write_string_res), Z_STRLEN_P(write_string_res));
-	p += Z_STRLEN_P(write_string_res);
-	memcpy(p, Z_STRVAL_P(write_int_res), Z_STRLEN_P(write_int_res));
-	p += Z_STRLEN_P(write_int_res);
+	memcpy(p, Z_STRVAL(write_string_res), Z_STRLEN(write_string_res));
+	p += Z_STRLEN(write_string_res);
+	memcpy(p, Z_STRVAL(write_int_res), Z_STRLEN(write_int_res));
+	p += Z_STRLEN(write_int_res);
 
 	for(i=0; i<params_count; i++){
 		memcpy(p, Z_STRVAL_P(params_ptr[i]), Z_STRLEN_P(params_ptr[i]));
 		p += Z_STRLEN_P(params_ptr[i]);
 	}
+	*p=0;
+	
+	RETURN_STRINGL(buf,  buf_size, 0);
+}
 
-	RETURN_STRING(buf,  0);
+
+
+/*
+	Hessian2ServiceWriter::writeCall
+*/
+static PHP_METHOD(Hessian2ServiceWriter, writeCall)
+{
+	zval *self;
+	zval *method, *params;
+
+	self = getThis();
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "za", &method, &params)) {
+		return;
+	}
+	if (Z_TYPE_P(method) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "method must be an string");
+		return;
+	}
+
+	hessian2_service_writer_write_call(self,  method, params, return_value);
 }
 
 
@@ -319,19 +331,7 @@ static PHP_METHOD(Hessian2ServiceWriter, writeReply)
 */
 static PHP_METHOD(Hessian2ServiceWriter, writeVersion)
 {
-	char buf[3];
-	zval res;
-
-	//return "H\x02\x00";
-	buf[0] = 'H';
-	buf[1] = 2;
-	buf[2] = 0;
-
-	Z_TYPE(res) = IS_STRING;
-	Z_STRVAL(res) = buf;
-	Z_STRLEN(res) = 3;
-	
-	RETURN_ZVAL(&res, 1, NULL);
+	hessian2_service_writer_write_version(return_value);
 }
 
 

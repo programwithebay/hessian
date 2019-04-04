@@ -219,6 +219,7 @@ void register_hessian_ext_class(){
 	INIT_CLASS_ENTRY(ce_hessian_options, "HessianOptions", hessian_options_functions);
 	hessian_options_entry = zend_register_internal_class(&ce_hessian_options TSRMLS_CC);
 	zend_declare_property_long(hessian_options_entry, "version", sizeof("version")-1,  2, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_string(hessian_options_entry, "transport", sizeof("transport")-1, "CURL", ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_options_entry, "transportOptions", sizeof("transportOptions")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_bool(hessian_options_entry, "detectVersion", sizeof("detectVersion")-1, 0, ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(hessian_options_entry, "objectFactory", sizeof("objectFactory")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);

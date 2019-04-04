@@ -61,7 +61,7 @@ zend_class_entry *dubbo_service_class_entry;
 
 
 //select provider
-zval * hessian_dubbo_service_select_provider(zval *self){
+zval* hessian_dubbo_service_select_provider(zval *self){
 	/*
 		if (false === $this->initProvider) {
             $this->delInvalidProvider();
@@ -168,9 +168,9 @@ zval * hessian_dubbo_service_select_provider(zval *self){
 	ZVAL_LONG(&param1, 1);
 	params[1] = &param1;
 
-	index = zend_read_property(NULL, self, ZEND_STRS("curProviderIndex"), 1 TSRMLS_CC);
+	index = zend_read_property(NULL, self, ZEND_STRL("curProviderIndex"), 1 TSRMLS_CC);
 	call_user_function(EG(function_table), NULL, &function_name, index, 2, params TSRMLS_DC);
-	zend_update_property(NULL, self, ZEND_STRS("curProviderIndex"), index TSRMLS_CC);
+	zend_update_property(NULL, self, ZEND_STRL("curProviderIndex"), index TSRMLS_CC);
 
 	zend_hash_index_find(Z_ARRVAL_P(providers), Z_LVAL_P(index), (void **)&res);
 
@@ -367,70 +367,70 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	return res;
 }
 
+/*
+	DubboService construct
+*/
+void dubbo_service_construct(zval *self, zval *name, zval *providers, zval *consumers)
+{
+	if (Z_TYPE_P(name) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "name is not a string");
+		return;
+	}
+	if (Z_TYPE_P(providers) != IS_ARRAY){
+		php_error_docref(NULL, E_WARNING, "providers is not a array");
+		return;
+	}
+	if (Z_TYPE_P(consumers) != IS_ARRAY){
+		php_error_docref(NULL, E_WARNING, "consumers is not a array");
+		return;
+	}
+
+	zend_update_property(dubbo_service_class_entry, self, ZEND_STRL("name"), name TSRMLS_DC);
+
+	
+	zend_update_property(dubbo_service_class_entry, self, ZEND_STRL("providers"), providers TSRMLS_DC);
+	zval_ptr_dtor(&providers);
+	
+	zend_update_property(dubbo_service_class_entry, self, ZEND_STRL("consumers"), consumers TSRMLS_DC);
+	zval_ptr_dtor(&consumers);
+}
+
+
 
 /*
 	get service by name
 */
 void get_service_by_name(zval *name, zval *storage, zval* retval){
-	/*
-	$value = $storage->get($name);
-    	$res   = new self($name, $value['providers'], $value['consumers']);
-    	return $res;
-    */
-	zval function_name;
-	zval *params[3];
-	zval config, *providers, *consumers;
-	
-	INIT_ZVAL(function_name);
-	ZVAL_STRING(&function_name, "get", 1);
-	params[0] = name;
-	//dont check is error
-	call_user_function(NULL, &storage, &function_name, &config, 1, params TSRMLS_CC);
+	zval config, **providers, **consumers;
+
+	dubbo_file_storage_get(storage, name, &config);
 
 	object_init_ex(retval, dubbo_service_class_entry);
-	zend_hash_find(Z_ARRVAL(config), "providers", sizeof("providers"), (void **)&providers);
-	zend_hash_find(Z_ARRVAL(config), "consumers", sizeof("consumers"), (void **)&consumers);
+	zend_hash_find(Z_ARRVAL(config), ZEND_STRS("providers"), (void **)&providers);
+	zend_hash_find(Z_ARRVAL(config), ZEND_STRS("consumers"), (void **)&consumers);
 	
-	ZVAL_STRING(&function_name, "__construct", 1);
-	params[0]  = name;
-	params[1] = providers;
-	params[2] = consumers;
-
-	call_user_function(NULL, &retval, &function_name, &config, 3, params TSRMLS_CC);
-	
-	zval_dtor(&function_name);
+	dubbo_service_construct(retval ,name, *providers, *consumers);
 }
+
+
+
 
 /*
 DubboService construct
 */
 static PHP_METHOD(DubboService, __construct)
 {
-	
 	zval *name, *providers, *consumers;
 	zval *self;
 	
+	self = getThis();
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zzz", &name, &providers, &consumers)) {
 		php_error_docref(NULL, E_WARNING, "parse DubboService::__construct param error");
+		return;
 	}
 
-	if (Z_TYPE_P(name) != IS_STRING){
-		php_error_docref(NULL, E_WARNING, "name is not a string");
-	}
-	if (Z_TYPE_P(providers) != IS_ARRAY){
-		php_error_docref(NULL, E_WARNING, "providers is not a string");
-	}
-	if (Z_TYPE_P(consumers) != IS_ARRAY){
-		php_error_docref(NULL, E_WARNING, "consumers is not a string");
-	}
 	
-	self = getThis();
-	zend_update_property(dubbo_service_class_entry, self, ZEND_STRL("name"), name TSRMLS_DC);
-	zend_update_property(dubbo_service_class_entry, self, ZEND_STRL("providers"), providers TSRMLS_DC);
-	zval_ptr_dtor(&providers);
-	
-	zend_update_property(dubbo_service_class_entry, self, ZEND_STRL("consumers"), consumers TSRMLS_DC);
-	zval_ptr_dtor(&consumers);
+	dubbo_service_construct(self, name, providers, consumers);
 }
 
 /*
@@ -613,11 +613,7 @@ static PHP_METHOD(DubboService, call)
 	p_client=&client;
 
 	object_init_ex(p_client, hessian_client_entry);
-	params[0]= provider;
-	params[1] = &options;
-
-	ZVAL_STRING(&function_name, "__construct", 1);
-	call_user_function(NULL, &p_client, &function_name, &retval, 2, params  TSRMLS_DC);
+	hessian_client_construct(p_client, provider, &options);
 
 
 	dto_map = zend_read_property(NULL, self, ZEND_STRL("dtoMap"), 1 TSRMLS_DC);

@@ -368,13 +368,14 @@ zval* get_dubbo_file_storage_basepath(zval *this){
 	return *value_ptr;
 }
 
+
+
 /*
-get by name
+	get by name
 */
-static PHP_METHOD(DubboFileStorage, get)
+void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 {
 	char *str;
-	zval* self;
 	int str_len;
 	zval *base_path;
 	char *path;
@@ -385,12 +386,8 @@ static PHP_METHOD(DubboFileStorage, get)
 	long options = 0;
 	long depth = 512;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
-		return;
-	}
 
-	self=getThis();
-	
+	str = Z_STRVAL_P(z_str);
 	base_path = get_dubbo_file_storage_basepath(self);
 	path = pemalloc(256, 0);
 	sprintf(path,"%s/%s", Z_STRVAL_P(base_path), str);
@@ -418,8 +415,32 @@ static PHP_METHOD(DubboFileStorage, get)
 	close(fd);
 	options |=  PHP_JSON_OBJECT_AS_ARRAY;
 	php_json_decode_ex(return_value, buf, nread, options, depth TSRMLS_CC);
-	
 }
+
+
+
+
+/*
+get by name
+*/
+static PHP_METHOD(DubboFileStorage, get)
+{
+	zval *self;
+	zval *str;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &str) == FAILURE) {
+		return;
+	}
+	if (Z_TYPE_P(str) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "str must be a string");
+		return;
+	}
+	self=getThis();
+
+	dubbo_file_storage_get(self, str, return_value);
+}
+
+
 
 /*
 set

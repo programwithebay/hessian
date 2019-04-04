@@ -140,6 +140,7 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	zval *parse_filters, *callback_handler;
 	zval function_name;
 	zval *params[2];
+	zval retval;
 
 	ALLOC_ZVAL(hessian2_service_writer);
 	INIT_ZVAL(*hessian2_service_writer);
@@ -147,7 +148,7 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = options;
-	call_user_function(NULL, &hessian2_service_writer, &function_name, NULL, 1, params TSRMLS_CC);
+	call_user_function(NULL, &hessian2_service_writer, &function_name, &retval, 1, params TSRMLS_CC);
 
 
 	
@@ -167,7 +168,8 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	ALLOC_ZVAL(iterator_arr_param1);
 	object_init_ex(iterator_arr_param1, hessian2_iterator_writer_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
-	call_user_function(NULL, &iterator_arr_param1, &function_name, NULL, 0, params TSRMLS_CC);
+	call_user_function(NULL, &iterator_arr_param1, &function_name, &retval, 0, params TSRMLS_CC);
+	
 	ALLOC_ZVAL(iterator_arr_param1);
 	ZVAL_STRING(iterator_arr_param1, "write", 1);
 	ALLOC_ZVAL(iterator_arr);
@@ -183,11 +185,11 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	object_init_ex(callback_handler, hessian_callback_handler_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = filters;
-	call_user_function(NULL, &callback_handler, &function_name, NULL, 1, params TSRMLS_CC);
+	call_user_function(NULL, &callback_handler, &function_name, &retval, 1, params TSRMLS_CC);
 
 	ZVAL_STRING(&function_name, "setFilters", 1);
 	params[0] = callback_handler;
-	call_user_function(NULL, &hessian2_service_writer, &function_name, NULL, 1, params TSRMLS_CC);
+	call_user_function(NULL, &hessian2_service_writer, &function_name, &retval, 1, params TSRMLS_CC);
 
 	return hessian2_service_writer;
 }
@@ -228,8 +230,9 @@ void hessian_factory_get_transport(zval *self, zval *options, zval *return_value
 	zval *type, *transports;
 	zval *writer;
 	zval obj_factory;
-	zval *class;
+	zval **class;
 	zval function_name;
+	zval retval;
 	zend_class_entry *ce_hessian_exception, *ce_class;
 
 	/*
@@ -249,23 +252,27 @@ void hessian_factory_get_transport(zval *self, zval *options, zval *return_value
 		RETURN_ZVAL(type, 0, NULL);
 	}
 
-	transports = zend_read_property(NULL, self, "transports", strlen("transports")-1, 1 TSRMLS_DC);
+	transports = zend_read_property(NULL, self, ZEND_STRL("transports"), 1 TSRMLS_DC);
 	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(transports), Z_STRVAL_P(type), Z_STRLEN_P(type), (void**)&class)){
-		zend_throw_exception(ce_hessian_exception, sprintf("The transport of type %s cannot be found", Z_STRVAL_P(type))
-			,0 TSRMLS_DC);
+		char buf[200];
+
+		sprintf(buf, "The transport of type %s cannot be found", Z_STRVAL_P(type));
+		zend_throw_exception(ce_hessian_exception, buf	, 0 TSRMLS_DC);
 		return;
 	}
 
-	ce_class = zend_fetch_class(Z_STRVAL_P(class), Z_STRLEN_P(class), 0 TSRMLS_DC);
+	ce_class = zend_fetch_class(Z_STRVAL_PP(class), Z_STRLEN_PP(class), 0 TSRMLS_DC);
 	if (!ce_class){
-		php_error_docref(NULL, E_WARNING, "class %s not found", Z_STRVAL_P(class));
+		php_error_docref(NULL, E_WARNING, "class %s not found", Z_STRVAL_PP(class));
 		return;
 	}
 
 	object_init_ex(return_value, ce_class);
-	INIT_ZVAL(function_name);
-	ZVAL_STRING(&function_name, "testAvailable", 1);
-	call_user_function(NULL, &return_value, &function_name, NULL, 0, NULL TSRMLS_CC);
+	hessian_curl_transport_test_available(return_value);
+
+	
+	//ZVAL_STRING(&function_name, "testAvailable", 1);
+	//call_user_function(NULL, &return_value, &function_name, &retval, 0, NULL TSRMLS_CC);
 }
 
 
@@ -417,63 +424,64 @@ static PHP_METHOD(HessianDatetimeAdapter, writeTime)
 /*
 	HessianFactory::__construct
 */
-static PHP_METHOD(HessianFactory, __construct)
+void hessian_factory_construct(zval *self)
 {
-	/*
-		$this->protocols = array(
-			'2'=>array($this,'loadVersion2'), '1'=>array($this,'loadVersion1')
-		);
-		$this->transports = array(
-			'CURL' => 'HessianCURLTransport',
-			'curl' => 'HessianCURLTransport',
-			'http' => 'HessianHttpStreamTransport'
-		);
-	*/
-
-	zval *self, *arr1, *arr2, *version1, *version2;
+	zval *arr1, *arr2, *version1, *version2;
 	zval *transports, *curl, *http_stream;
 	zval *protocols;
 	
-	self = getThis();
-	
 	ALLOC_ZVAL(arr1);
 	array_init_size(arr1, 2);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr1),self, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&self, sizeof(zval*), NULL);
 	
 	ALLOC_ZVAL(version1);
 	ZVAL_STRING(version1, "loadVersion1", 1);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr1),version1, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&version1, sizeof(zval*), NULL);
 	
 	ALLOC_ZVAL(arr2);
 	array_init_size(arr2, 2);
 	ALLOC_ZVAL(version2);
 	ZVAL_STRING(version2, "loadVersion2", 1);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), self, sizeof(zval*), NULL);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), version2, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), (void *)&self, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), (void *)&version2, sizeof(zval*), NULL);
 
 
 
 
 	ALLOC_ZVAL(protocols);
 	array_init_size(protocols, 2);
-	zend_hash_add(Z_ARRVAL_P(protocols), "2", 1, arr2, sizeof(zval*), NULL);
-	zend_hash_add(Z_ARRVAL_P(protocols), "1", 1, arr1, sizeof(zval*), NULL);
-	zend_update_property(hessian_factory_entry, self, ZEND_STRL("protocols"),  protocols TSRMLS_DC);
+	zend_hash_add(Z_ARRVAL_P(protocols), "1", 1, (void *)&arr1, sizeof(zval*), NULL);
+	zend_hash_add(Z_ARRVAL_P(protocols), "2", 1, (void *)&arr2, sizeof(zval*), NULL);
+	zend_update_property(NULL, self, ZEND_STRL("protocols"),  protocols TSRMLS_DC);
 
 	
 
 	//transports
 	ALLOC_ZVAL(transports);
 	array_init_size(transports, 3);
+	
 	ALLOC_ZVAL(curl);
 	ZVAL_STRING(curl, "HessianCURLTransport", 1);
-	zend_hash_add(Z_ARRVAL_P(transports), "CURL", 4, &curl, sizeof(zval*), NULL);
-	zend_hash_add(Z_ARRVAL_P(transports), "curl",4, &curl, sizeof(zval*), NULL);
-	ALLOC_ZVAL(curl);
+	zend_hash_add(Z_ARRVAL_P(transports), "CURL", 4, (void *)&curl, sizeof(zval*), NULL);
+	zend_hash_add(Z_ARRVAL_P(transports), "curl",4, (void *)&curl, sizeof(zval*), NULL);
+	
+	ALLOC_ZVAL(http_stream);
 	ZVAL_STRING(http_stream, "HessianHttpStreamTransport", 1);
-	zend_hash_add(Z_ARRVAL_P(transports), "http", 4, &http_stream, sizeof(zval**), NULL);
+	zend_hash_add(Z_ARRVAL_P(transports), "http", 4, (void *)&http_stream, sizeof(zval*), NULL);
 
-	zend_update_property(hessian_factory_entry, self, "transports", strlen("transports")-1,  transports TSRMLS_DC);
+	zend_update_property(NULL, self, ZEND_STRL("transports"),  transports TSRMLS_DC);
+}
+
+
+/*
+	HessianFactory::__construct
+*/
+static PHP_METHOD(HessianFactory, __construct)
+{
+	zval *self;
+	
+	self = getThis();
+	hessian_factory_construct(self);
 }
 
 
