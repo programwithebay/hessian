@@ -124,30 +124,24 @@ ZEND_END_ARG_INFO()
 
 zend_class_entry *dubbo_client_class_entry;
 
+
 /*
 set option with 2 params
 */
-static void set_option_2param(zval *service_instance, zval *this_instance, char *param_name, zval* property_value){
-	zval function_name;
+static void set_option_2param(zval *service_instance, zval *self, char *param_name, zval* property_value){
 	zval param;
-	zval *params[2];
 	zval *property;
 	zval retval;
 	
-	INIT_ZVAL(function_name);
-	ZVAL_STRING(&function_name, "setOption", 1);
 	INIT_ZVAL(param);
 	ZVAL_STRING(&param, param_name, 1);
-	params[0] = &param;
-	if (!property_value){
-		params[1] = property_value;
+	if (i_zend_is_true(property_value)){
+		property = property_value;
 	}else{
-		property = zend_read_property(dubbo_client_class_entry, this_instance, ZEND_STRL(param_name), 1 TSRMLS_DC);
-		params[1] = property;
+		property = zend_read_property(NULL, self, ZEND_STRL(param_name), 1 TSRMLS_DC);
 	}
 	//dont check is error
-	call_user_function(NULL, &service_instance, &function_name, &retval, 2, params TSRMLS_CC);
-	zval_dtor(&function_name);
+	dubbo_service_set_option(service_instance, &param, property);
 	zval_dtor(&param);
 }
 

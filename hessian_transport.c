@@ -107,6 +107,7 @@ static PHP_METHOD(HessianCURLTransport, getMetadata)
 void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *options, zval *return_value)
 {
 	zval curl_options;
+	zval retval;
 	zval function_name;
 	zval *params[2];
 	zval *ch;
@@ -258,7 +259,7 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 			
 			ZVAL_STRING(&function_name, "curl_close", 1);
 			params[0] = ch;
-			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
+			call_user_function(EG(function_table), NULL, &function_name, &retval, 1, params TSRMLS_DC);
 			zend_throw_exception(*ce_exception, sprintf("CURL transport error: %s", Z_STRVAL_P(curl_error)), 0 TSRMLS_DC);
 			return;
 		}
