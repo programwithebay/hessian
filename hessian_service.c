@@ -117,12 +117,8 @@ static PHP_METHOD(HessianService, __construct)
 		// timezones
 		HessianUtils::setTimeZone($this->options->timeZone);
 	*/
-
-
-	INIT_ZVAL(function_name);
-	ZVAL_STRING(&function_name, "HessianOptions::resolveOptions", 1);
+	hessian_options_resolve_options(arg_options, options);
 	params[0] = arg_options;
-	call_user_function(EG(function_table), NULL, &function_name, options, 1, params TSRMLS_CC);
 
 	zend_update_property(hessian_service_entry, self, ZEND_STRL("options"), options TSRMLS_DC);
 	if (i_zend_is_true(service_object)){

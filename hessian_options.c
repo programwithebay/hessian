@@ -103,19 +103,14 @@ static PHP_METHOD(HessianOptions, fromArray)
 }
 
 
-
 /**
 	HessianOptions::fromArray
 **/
 
-static PHP_METHOD(HessianOptions, resolveOptions)
+void hessian_options_resolve_options(zval *object, zval *return_value)
 {
-	zval *object, *options, *self;
+	zval *options;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &object) == FAILURE) {
-		return;
-	}
-
 	ALLOC_ZVAL(options);
 	object_init_ex(options, hessian_options_entry);
 	if (Z_TYPE_P(object) == IS_NULL){
@@ -149,6 +144,24 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 
 
 	RETURN_ZVAL(options, 0, NULL);
+}
+
+
+
+
+/**
+	HessianOptions::fromArray
+**/
+
+static PHP_METHOD(HessianOptions, resolveOptions)
+{
+	zval *object, *options, *self;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &object) == FAILURE) {
+		return;
+	}
+
+	hessian_options_resolve_options(object, return_value);
 }
 
 

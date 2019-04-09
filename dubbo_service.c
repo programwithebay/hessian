@@ -240,6 +240,8 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	ZVAL_STRING(&param1, "=", 1);
 	
 	char *key;
+	zval *new_value;
+	
 	ALLOC_ZVAL(params);
 	array_init_size(params, zend_hash_num_elements(Z_ARRVAL(arr_query_param)));
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL(arr_query_param), &pos);
@@ -257,10 +259,14 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		call_user_function(EG(function_table), NULL, &function_name, &arr_item, 2, arg_params TSRMLS_CC);
 		zend_hash_index_find(Z_ARRVAL(arr_item), 0, (void **)&key);
 		zend_hash_index_find(Z_ARRVAL(arr_item), 1, (void **)&value);
-		
-		zend_hash_add(Z_ARRVAL_P(params), Z_STRVAL_PP(key),  Z_STRLEN_PP(key)+1, value, sizeof(zval *), NULL);
 
 		//free array
+		//zval_copy_ctor(zvalue)
+		ALLOC_ZVAL(new_value);
+		Z_TYPE_P(new_value) = IS_STRING;
+		Z_STRVAL_P(new_value) = estrndup(Z_STRVAL_PP(value),  Z_STRLEN_PP(value));
+		Z_STRLEN_P(new_value) = Z_STRLEN_PP(value);
+		zend_hash_add(Z_ARRVAL_P(params), Z_STRVAL_PP(key),  Z_STRLEN_PP(key)+1, (void *)&new_value, sizeof(zval *), NULL);
 		zval_dtor(&arr_item);
 		
 		zend_hash_move_forward_ex(Z_ARRVAL(arr_query_param), &pos);
@@ -351,7 +357,7 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	        return $provider;
         */
 
-	zval *res, **scheme, **host, **port;
+	zval **scheme, **host, **port;
 	char *buf;
 
 	zend_hash_find(Z_ARRVAL(url_info), "scheme", strlen("scheme")+1, (void **)&scheme);
@@ -361,11 +367,14 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	buf = strcat(buf, Z_STRVAL_PP(host));
 
 	if (SUCCESS == (zend_hash_find(Z_ARRVAL(url_info), "port", strlen("port")+1, (void **)&port))){
-		if (strncmp(Z_STRVAL_PP(port), "80", 2) != 0){
+		if (Z_LVAL_PP(port) != 80){
 			buf = strcat(buf, ":");
-			buf = strcat(buf, Z_STRVAL_PP(port));
+			char port_str[6];
+			sprintf(port_str, "%d", Z_STRVAL_PP(port));
+			buf = strcat(buf, port_str);
 		}
 	}
+	buf = strcat(buf, "?");
 
 	int i=0;
 	char *str_key;
@@ -375,9 +384,9 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	efree(Z_STRVAL(function_name));
 
 	ZVAL_STRING(&function_name, "urlencode", 1);
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL(arr_query_param), &pos);
-	while (zend_hash_get_current_data_ex(Z_ARRVAL(arr_query_param), (void **)&src_entry, &pos) == SUCCESS) {
-		zend_hash_get_current_key_ex(Z_ARRVAL(arr_query_param), &str_key, &key_length, &num_index, 0,  &pos);
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(params), &pos);
+	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(params), (void **)&src_entry, &pos) == SUCCESS) {
+		zend_hash_get_current_key_ex(Z_ARRVAL_P(params), &str_key, &key_length, &num_index, 0,  &pos);
 		if(i>0){
 			buf = strcat(buf, "&");
 		}
@@ -386,13 +395,18 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		// $provider .= $key . '=' . urlencode($value);
 		arg_params[0] = *src_entry;
 		call_user_function(EG(function_table), NULL, &function_name, *src_entry, 1, arg_params TSRMLS_DC);
-		buf = strcat(buf, Z_STRVAL_PP(src_entry));
+		if (Z_TYPE_PP(src_entry) == IS_STRING && Z_STRLEN_PP(src_entry) > 0){
+			buf = strcat(buf, Z_STRVAL_PP(src_entry));
+		}
 		++i;
-		zend_hash_move_forward_ex(Z_ARRVAL(arr_query_param), &pos);
+		zend_hash_move_forward_ex(Z_ARRVAL_P(params), &pos);
 	}
 	efree(Z_STRVAL(function_name));
 	FREE_ZVAL(params);
 
+
+	zval *res;
+	ALLOC_ZVAL(res);
 	ZVAL_STRING(res, buf, 0);
 	return res;
 }

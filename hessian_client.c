@@ -320,10 +320,9 @@ void hessian_client_construct(zval *self, zval *url, zval *options)
 		$this->typemap = new HessianTypeMap($this->options->typeMap);
 		$this->factory = new HessianFactory();
 	*/
-	ZVAL_STRING(&function_name, "HessianOptions::resolveOptions", 1);
 	ALLOC_ZVAL(self_options);
-	params[0] = options;
-	call_user_function(EG(function_table), NULL, &function_name, self_options, 1, params TSRMLS_CC);
+	hessian_options_resolve_options(options, self_options);
+
 
 	
 	zend_update_property(NULL, self, ZEND_STRL("options"), self_options TSRMLS_CC);

@@ -316,7 +316,7 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	if (Z_LVAL_P(curl_code) != 200){
 		if (Z_TYPE_P(ch) == IS_RESOURCE){
 			params[0] = ch;
-			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
+			call_user_function(EG(function_table), NULL, &function_name, &retval, 1, params TSRMLS_DC);
 		}
 		/*
 		$msg = "Server error, returned HTTP code: $code";
@@ -335,6 +335,7 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 		zend_class_entry **ce_exception;
 		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **)&ce_exception);
 		zend_throw_exception(*ce_exception, Z_STRVAL(message), 0 TSRMLS_DC);
+		return;
 	}
 
 	zval stream;
