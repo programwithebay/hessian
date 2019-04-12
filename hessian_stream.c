@@ -177,17 +177,15 @@ static PHP_METHOD(HessianStream, peek)
 /*
 	HessianStream::read
 */
-static PHP_METHOD(HessianStream, read)
+void hessian_stream_read(zval *self, long count, zval *return_value)
 {
-	zval *self, *z_pos;
-	long count, pos, len;
+	zval  *z_pos;
+	long pos, len;
 	zval *z_bytes;
 	char *buf, *ret_buf;
 	zend_class_entry ce_exception;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &count) == FAILURE) {
-		RETURN_FALSE;
-	}
+
 
 	if (count < 1){
 		return;
@@ -205,7 +203,6 @@ static PHP_METHOD(HessianStream, read)
 	        return $portion;
        */
 
-	self = getThis();
 	z_bytes = zend_read_property(NULL, self, ZEND_STRL("bytes"), 1 TSRMLS_DC);
 	z_pos = zend_read_property(NULL, self, ZEND_STRL("pos"), 1 TSRMLS_DC);
 	pos = Z_LVAL_P(z_pos);
@@ -226,6 +223,26 @@ static PHP_METHOD(HessianStream, read)
 	zend_update_property(NULL, self, ZEND_STRL("pos"), z_pos TSRMLS_DC);
 	
 	RETURN_STRING(ret_buf, 0);
+}
+
+
+
+
+/*
+	HessianStream::read
+*/
+static PHP_METHOD(HessianStream, read)
+{
+	zval *self;
+	long count;
+
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &count) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	self = getThis();
+	hessian_stream_read(self, count, return_value);
 }
 
 

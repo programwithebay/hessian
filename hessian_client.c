@@ -230,23 +230,12 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 		return;
 	}
 
-	factory = zend_read_property(Z_OBJCE_P(options), options, ZEND_STRL("factory"), 0 TSRMLS_DC);
-	ZVAL_STRING(&function_name, "getParser", 1);
-	params[0] = stream ;
-	params[1] = options;
-
-	
+	factory = zend_read_property(NULL, self, ZEND_STRL("factory"), 0 TSRMLS_DC);
 	ALLOC_ZVAL(parser);
-	if (SUCCESS  != call_user_function(NULL, &factory, &function_name, parser, 2, params TSRMLS_CC)){
-		php_error_docref(NULL, E_WARNING, "call factory->getParser error");
-		return;
-	}
-	ZVAL_STRING(&function_name, "setTypeMap", 1);
-	params[0] =  typemap;
-	if (SUCCESS  != call_user_function(NULL, &parser, &function_name, &retval, 1, params TSRMLS_CC)){
-		php_error_docref(NULL, E_WARNING, "call parser->setTypeMap error");
-		return;
-	}
+	hessian_factory_get_parser(factory, stream, options, parser);
+
+	hessian2_parser_set_type_map(parser, typemap);
+	
 	zend_update_property(NULL, ctx, ZEND_STRL("parser"), parser TSRMLS_DC);
 	zend_update_property(NULL, ctx, ZEND_STRL("stream"), stream TSRMLS_DC);
 
@@ -263,12 +252,7 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 		return $result;
 	*/
 
-	ZVAL_STRING(&function_name, "parseTop", 1);
-	if (SUCCESS  != call_user_function(NULL, &parser, &function_name, &result, 0, params TSRMLS_CC)){
-		//@todo seterror
-		php_error_docref(NULL, E_WARNING, "call parser->parseTop error");
-		return;
-	}
+	hessian2_service_parser_parse_top(parser, &result);
 
 
 	if (interceptors && Z_TYPE_P(interceptors) == IS_ARRAY){
@@ -465,6 +449,47 @@ static PHP_METHOD(HessianClient, __getTypeMap)
 
 	return_value = zend_read_property(hessian_client_entry, self, ZEND_STRL("typemap"), 0 TSRMLS_DC);
 }
+
+
+
+
+//calltest
+//how to write a call method
+void hessian_call_class_function_helper(zval *self, zval *function_name, zval *params, zval *return_value)
+{
+	zval *retval_ptr = NULL;
+	zend_fcall_info *fci;
+	zend_fcall_info_cache *fci_cache;
+	char *is_callable_error;
+	zval caller;
+
+
+	fci = emalloc(sizeof(zend_fcall_info));
+	fci_cache = emalloc(sizeof(zend_fcall_info_cache));
+
+	array_init(&caller);
+	Z_ADDREF_P(self);
+	add_index_zval(&caller, 0, self);
+	add_index_zval(&caller, 1, function_name);
+
+	
+	fci->function_name = function_name;
+	fci->object_ptr = self;
+	if (zend_fcall_info_init(&caller, 0, fci, fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
+	}else{
+		return;
+	}
+
+	zend_fcall_info_args(fci, params TSRMLS_CC);
+	fci->retval_ptr_ptr = &retval_ptr;
+
+	if (zend_call_function(fci, fci_cache TSRMLS_CC) == SUCCESS && fci->retval_ptr_ptr && *(fci->retval_ptr_ptr)) {
+		COPY_PZVAL_TO_ZVAL(*return_value, *(fci->retval_ptr_ptr));
+	}
+
+	zend_fcall_info_args_clear(fci, 1);
+}
+
 
 //calltest
 //how to write a call method

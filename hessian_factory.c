@@ -489,15 +489,11 @@ static PHP_METHOD(HessianFactory, __construct)
 /*
 	HessianFactory::getParser
 */
-static PHP_METHOD(HessianFactory, getParser)
+void hessian_factory_get_parser(zval  *self, zval *stream, zval *options, zval *return_value)
 {
-	zval *self;
-	zval *stream, *options, *parser;
+	zval *parser;
 	zval *obj_factory;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &stream, &options) == FAILURE) {
-		RETURN_FALSE;
-	}
 	/*
 	$parser = call_user_func_array($callback, array('parser', $stream, $options));
 	if($options->objectFactory instanceof IHessianObjectFactory){
@@ -518,6 +514,23 @@ static PHP_METHOD(HessianFactory, getParser)
 	object_init_ex(obj_factory, hessian_object_factory_entry);
 	zend_update_property(NULL, parser, ZEND_STRL("objectFactory"), obj_factory TSRMLS_DC);
 	RETURN_ZVAL(parser, 0, NULL);
+}
+
+
+
+/*
+	HessianFactory::getParser
+*/
+static PHP_METHOD(HessianFactory, getParser)
+{
+	zval *self;
+	zval *stream, *options;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &stream, &options) == FAILURE) {
+		RETURN_FALSE;
+	}
+	self = getThis();
+	hessian_factory_get_parser(self, stream, options, return_value);
 }
 
 

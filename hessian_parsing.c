@@ -60,46 +60,6 @@ zend_class_entry *hessian_stream_result_entry;
 ZEND_DECLARE_MODULE_GLOBALS(hessian)
 
 
-/*
-	HessianRuleResolver::resolveSymbol
-*/
-hessian_parsing_rule hessian_rule_resolver_resolve_symbol(char symbol, char *type_expected)
-{
-	char index;
-	hessian_parsing_rule rule;
-	
-	
-	index = HESSIAN_G(hessian2_symbols)[symbol];
-	rule = HESSIAN_G(hessian2_rules)[index];
-	if (type_expected){
-		char* split[20];
-		char *p_head, *p_end;
-		int i, len;
-
-		i = 0;
-		p_head = type_expected;
-		while(*p_head == ' ') ++p_head;
-		if (!p_head)	return rule;
-		while(p_head){
-			split[i++] = p_head;
-			while(*p_head && *p_head != ',') p_head++;
-			if (*p_head && *p_head == ',') *p_head = 0;
-			++p_head;
-		}
-
-		len = i;
-		for(i=0; i<len; i++){
-			if (strcmp(rule.type, split[i]) == 0){
-				//throw new HessianParsingException("Type $typeExpected expected");
-				//@todo:error code
-				zend_throw_exception(hessian_parsing_exception_entry, sprintf("Type %s expected", type_expected), 8);
-			}
-		}
-	}
-
-	return rule;
-}
-
 
 /*
 	HessianCall::__construct
