@@ -110,7 +110,7 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 {
 	zval *params[3];
 	zval function_name, args;
-	zval *factory, *transport, *options, *writer, *z_null;
+	zval *factory, *transport, *options, *writer, z_null;
 	zval *typemap, *ctx, *call, *url, *payload, *interceptors;
 	zval *before, *stream, *parser, result, *after;
 	char *str_method;
@@ -126,28 +126,24 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 	ALLOC_ZVAL(transport);
 	hessian_factory_get_transport(factory, options, transport);
 
-	ALLOC_ZVAL(z_null);
-	INIT_ZVAL(*z_null);
-	Z_TYPE_P(z_null) = IS_NULL;
-	params[0]= z_null;
+
+	Z_TYPE(z_null) = IS_NULL;
+	params[0]= &z_null;
 	params[1] = options;
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "getWriter", 1);
 	ALLOC_ZVAL(writer);
-	if (SUCCESS  != call_user_function(NULL, &factory, &function_name, writer, 2, params TSRMLS_CC)){
-		FREE_ZVAL(z_null);
+	hessian_call_class_function_helper(factory, &function_name, 2, params, writer);
+	if (Z_TYPE_P(writer) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "call factory->getWriter error");
 		return;
 	}
 	
-	FREE_ZVAL(z_null);
-	typemap = zend_read_property(hessian_client_entry, self, ZEND_STRL("typemap"), 0 TSRMLS_DC);
+	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 0 TSRMLS_DC);
 	params[0]= typemap;
 	ZVAL_STRING(&function_name, "setTypeMap", 1);
-	if (SUCCESS  != call_user_function(NULL, &writer, &function_name, writer, 1, params TSRMLS_CC)){
-		php_error_docref(NULL, E_WARNING, "call writer->setTypeMap error");
-		return;
-	}
+	hessian_call_class_function_helper(writer, &function_name, 1, params, &retval);
+
 
 	/*
 	$ctx = new HessianCallingContext();
@@ -168,14 +164,13 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 	zend_update_property(NULL, ctx, ZEND_STRL("options"), options TSRMLS_DC);
 	zend_update_property(NULL, ctx, ZEND_STRL("typemap"), typemap TSRMLS_DC);
 
+	ALLOC_ZVAL(call);
 	object_init_ex(call, hessian_call_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = method;
 	params[1] = arguments;
-	if (SUCCESS  != call_user_function(NULL, &call, &function_name, call, 2, params TSRMLS_CC)){
-		php_error_docref(NULL, E_WARNING, "call HessianClient::getWriter error");
-		return;
-	}
+	hessian_call_class_function_helper(call, &function_name, 2, params, &retval);
+
 	zend_update_property(NULL, ctx, ZEND_STRL("call"), call TSRMLS_DC);
 	url = zend_read_property(hessian_client_entry, self, ZEND_STRL("url"), 0 TSRMLS_DC);
 	zend_update_property(NULL, ctx, ZEND_STRL("url"), url TSRMLS_DC);
@@ -225,7 +220,7 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 
 	ALLOC_ZVAL(stream);
 	hessian_curl_transport_get_stream(transport, url, payload, options, stream);
-	if (EG(exception)){
+	if (Z_TYPE_P(stream) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "call $transport->getStream error");
 		return;
 	}
@@ -455,17 +450,19 @@ static PHP_METHOD(HessianClient, __getTypeMap)
 
 //calltest
 //how to write a call method
-void hessian_call_class_function_helper(zval *self, zval *function_name, zval *params, zval *return_value)
+void hessian_call_class_function_helper(zval *self, zval *function_name, int params_count, zval *params[], zval *return_value)
 {
 	zval *retval_ptr = NULL;
-	zend_fcall_info *fci;
-	zend_fcall_info_cache *fci_cache;
+	zend_fcall_info fci;
+	zend_fcall_info_cache fci_cache;
 	char *is_callable_error;
 	zval caller;
+	zval arr_params;
+	int i;
 
 
-	fci = emalloc(sizeof(zend_fcall_info));
-	fci_cache = emalloc(sizeof(zend_fcall_info_cache));
+	//fci = emalloc(sizeof(zend_fcall_info));
+	//fci_cache = emalloc(sizeof(zend_fcall_info_cache));
 
 	array_init(&caller);
 	Z_ADDREF_P(self);
@@ -473,21 +470,27 @@ void hessian_call_class_function_helper(zval *self, zval *function_name, zval *p
 	add_index_zval(&caller, 1, function_name);
 
 	
-	fci->function_name = function_name;
-	fci->object_ptr = self;
-	if (zend_fcall_info_init(&caller, 0, fci, fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
+	fci.function_name = function_name;
+	fci.object_ptr = self;
+	if (zend_fcall_info_init(&caller, 0, &fci, &fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
 	}else{
 		return;
 	}
 
-	zend_fcall_info_args(fci, params TSRMLS_CC);
-	fci->retval_ptr_ptr = &retval_ptr;
+	array_init_size(&arr_params, params_count);
+	for(i=0; i<params_count; i++){
+		add_index_zval(&arr_params, i, params[i]);
+	}
+	zend_fcall_info_args(&fci, &arr_params TSRMLS_CC);
+	fci.retval_ptr_ptr = &retval_ptr;
 
-	if (zend_call_function(fci, fci_cache TSRMLS_CC) == SUCCESS && fci->retval_ptr_ptr && *(fci->retval_ptr_ptr)) {
-		COPY_PZVAL_TO_ZVAL(*return_value, *(fci->retval_ptr_ptr));
+	if (zend_call_function(&fci, &fci_cache TSRMLS_CC) == SUCCESS && fci.retval_ptr_ptr && *(fci.retval_ptr_ptr)) {
+		if (NULL != return_value){
+			COPY_PZVAL_TO_ZVAL(*return_value, *(fci.retval_ptr_ptr));
+		}
 	}
 
-	zend_fcall_info_args_clear(fci, 1);
+	zend_fcall_info_args_clear(&fci, 1);
 }
 
 
@@ -495,42 +498,14 @@ void hessian_call_class_function_helper(zval *self, zval *function_name, zval *p
 //how to write a call method
 static PHP_METHOD(HessianClient, calltest)
 {
-	zval *fun;
-	zval *params, *retval_ptr = NULL;
-	zend_fcall_info *fci;
-	zend_fcall_info_cache *fci_cache;
-	char *is_callable_error;
-	zval *format;
+	zval *cls_obj, *function_name, *params;
 	
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &fun)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zzz", &cls_obj, &function_name, &params)) {
 		return;
 	}
 
-	fci = emalloc(sizeof(zend_fcall_info));
-	fci_cache = emalloc(sizeof(zend_fcall_info_cache));
-	fci->function_table = EG(function_table);
-	if (zend_fcall_info_init(fun, 0, fci, fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
-	}else{
-		return;
-	}
-
-	ALLOC_ZVAL(params);
-	array_init_size(params, 1);
-	ALLOC_ZVAL(format);
-	INIT_ZVAL(*format);
-	ZVAL_STRING(format, "Y-m-d H:i:s", 1);
-	zend_hash_next_index_insert(Z_ARRVAL_P(params), &format, sizeof(zval**), NULL);
-
-	zend_fcall_info_args(fci, params TSRMLS_CC);
-	fci->retval_ptr_ptr = &retval_ptr;
-
-	if (zend_call_function(fci, fci_cache TSRMLS_CC) == SUCCESS && fci->retval_ptr_ptr && *(fci->retval_ptr_ptr)) {
-		COPY_PZVAL_TO_ZVAL(*return_value, *(fci->retval_ptr_ptr));
-	}
-
-	zend_fcall_info_args_clear(fci, 1);
-	FREE_ZVAL(params);
-	FREE_ZVAL(format);
+	//hessian_call_class_function_helper(cls_obj, function_name, params, return_value);
+	
 }
 
 
@@ -543,7 +518,7 @@ const zend_function_entry hessian_client_functions[] = {
 	PHP_ME(HessianClient, __call,			arginfo_hessian_client_call,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianClient, __getOptions,			arginfo_hessian_client_get_options,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianClient, __getTypeMap,			arginfo_hessian_client_get_typemap,		ZEND_ACC_PUBLIC)
-	PHP_ME(HessianClient, calltest,			arginfo_hessian_client_calltest,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianClient, calltest,			arginfo_hessian_client_calltest,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
 };
 

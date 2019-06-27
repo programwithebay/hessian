@@ -28,6 +28,7 @@
 #include "php_hessian.h"
 #include "hessian_common.h"
 #include "php_hessian_int.h"
+//#include "Zend/zend_alloc.c"
 
 
 #define DECLARE_HESSIAN_RULE(index, type, func, desc) \
@@ -136,7 +137,6 @@ void register_hessian_base_class(){
 	dubbo_client_class_entry->create_object = dubbo_client_create_handler;
     memcpy(&dubbo_client_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
     dubbo_client_object_handlers.clone_obj = NULL;
-	
 	
 	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("storage"),  ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("logCallback"), ZEND_ACC_PUBLIC TSRMLS_CC);
@@ -338,9 +338,7 @@ void register_hessian_ext_class(){
 	INIT_CLASS_ENTRY(ce_hessian_utils, "HessianUtils", hessian_utils_functions);
 	hessian_utils_entry =  zend_register_internal_class(&ce_hessian_utils TSRMLS_CC);
 	zend_declare_property_null(hessian_utils_entry, "littleEndian", sizeof("littleEndian")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
-	
-	zval *pow32;
-	ALLOC_ZVAL(pow32);
+
 	zend_declare_class_constant_long(hessian_utils_entry, "pow32", sizeof("pow32")-1, 4294967296L TSRMLS_CC);
 
 	//Hessian2Writer
@@ -726,6 +724,47 @@ void init_hessian_globals(){
 	HESSIAN_G(hessian2_symbols)[90] = 44;
 }
 
+/*
+void test_macro()
+{
+	unsigned int value;
+
+	value = ZEND_MM_ALIGNED_HEADER_SIZE;
+	printf("ZEND_MM_ALIGNED_HEADER_SIZE=%d  \n", value);
+
+	value = ZEND_MM_ALIGNED_FREE_HEADER_SIZE;
+	printf("ZEND_MM_ALIGNED_FREE_HEADER_SIZE=%d \n", value);
+
+	value = ZEND_MM_ALIGNMENT;
+	printf("ZEND_MM_ALIGNMENT=%d \n", value);
+
+	value = ZEND_MM_MIN_ALLOC_BLOCK_SIZE;
+	printf("ZEND_MM_MIN_ALLOC_BLOCK_SIZE=%d  \n", value);
+
+	value = END_MAGIC_SIZE;
+	printf("END_MAGIC_SIZE=%d  \n", value);
+
+	value = ZEND_MM_ALIGNED_MIN_HEADER_SIZE;
+	printf("ZEND_MM_ALIGNED_MIN_HEADER_SIZE=%d  \n", value);
+
+	value = ZEND_MM_ALIGNED_SEGMENT_SIZE;
+	printf("ZEND_MM_ALIGNED_SEGMENT_SIZE=%d \n", value);
+
+	value = ZEND_MM_MIN_SIZE;
+	printf("ZEND_MM_MIN_SIZE=%d \n", value);
+
+	value = ZEND_MM_ALIGNMENT_LOG2;
+	printf("ZEND_MM_ALIGNMENT_LOG2=%d \n", value);
+
+
+	value = ZEND_MM_MAX_SMALL_SIZE;
+	printf("ZEND_MM_MAX_SMALL_SIZE=%d \n", value);
+	
+	exit(0);
+}
+*/
+
+
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(hessian)
@@ -733,7 +772,6 @@ PHP_MINIT_FUNCTION(hessian)
 	/* If you have INI entries, uncomment these lines 
 	REGISTER_INI_ENTRIES();
 	*/
-
 	register_hessian_base_class();
 
 	register_hessian_ext_class();

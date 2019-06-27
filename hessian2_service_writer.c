@@ -60,7 +60,7 @@ void hessian2_service_writer_write_version(zval *return_value)
 	buf[1] = 2;
 	buf[2] = 0;
 
-	RETURN_STRINGL(buf,  3, 0);
+	RETURN_STRINGL(buf,  3, 1);
 }
 
 
@@ -82,6 +82,7 @@ void hessian2_service_writer_write_call(zval *self, zval *method, zval *params, 
 
 
 	char msg_buf[100];
+	//todo:call
 	sprintf(msg_buf, "call %s", Z_STRVAL_P(method));
 	ZVAL_STRING(&param1, msg_buf, 1);
 	call_params[0] = &param1;
@@ -127,15 +128,18 @@ void hessian2_service_writer_write_call(zval *self, zval *method, zval *params, 
 	*/
 	i=0;
 	HashPosition pos;
-	zval *src_entry;
-	ZVAL_STRING(&function_name, "writeValue", 1);
+	zval **src_entry;
+	//ZVAL_STRING(&function_name, "writeValue", 1);
 
 	
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(params), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(params), (void **)&src_entry, &pos) == SUCCESS) {
+		//call_params[0] = *src_entry;
+		//hessian_call_class_function_helper(self, &function_name, 1,  call_params, params_ptr[i]);
+
+		hessian2_writer_write_value(self,  *src_entry, params_ptr[i]);
 		
-		call_params[0] = src_entry;
-		call_user_function(NULL, &self, &function_name, params_ptr[i], 1, call_params TSRMLS_DC);
+		//call_user_function(NULL, &self, &function_name, params_ptr[i], 1, call_params TSRMLS_DC);
 		buf_size += Z_STRLEN_P(params_ptr[i]);
 		i++;
 		zend_hash_move_forward_ex(Z_ARRVAL_P(params), &pos);

@@ -63,7 +63,7 @@ zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC)
     zend_object_value retval;
 
     dubbo_client_object *obj = (dubbo_client_object *)emalloc(sizeof(dubbo_client_object));
-    memset(obj, 0, sizeof(dubbo_client_entity));
+    memset(obj, 0, sizeof(dubbo_client_object));
     obj->std.ce = type;
 
 	zend_object_std_init(&obj->std, type TSRMLS_CC);
@@ -511,6 +511,7 @@ static PHP_METHOD(DubboClient, callService)
 		if (call_user_function(NULL, &cls_service_ptr, &function_name, &retval, 1, params TSRMLS_CC) == FAILURE) {
 			zval_dtor(&function_name);
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Error calling constructor");
+			return;
 		}
 		zval_dtor(&function_name);
 	}
@@ -550,7 +551,7 @@ static PHP_METHOD(DubboClient, callService)
 	//default return is false
 	RETVAL_FALSE;
 
-	property = zend_read_property(dubbo_client_class_entry, self, ZEND_STRL("retries"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("retries"), 1 TSRMLS_DC);
 	retries = Z_LVAL_P(property);
 
 	//init function name
@@ -568,7 +569,8 @@ static PHP_METHOD(DubboClient, callService)
 	fci_cache = obj->entity.fci_cache;
 	
 	for(i=0; i<retries; i++){
-		call_user_function(NULL, &cls_service_ptr, &function_name, return_value, 2, params TSRMLS_CC);
+		hessian_call_class_function_helper(cls_service_ptr, &function_name, 2, params, return_value);
+		//call_user_function(NULL, &cls_service_ptr, &function_name, return_value, 2, params TSRMLS_CC);
 		if (i_zend_is_true(return_value)){
 			break;
 		}

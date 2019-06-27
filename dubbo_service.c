@@ -104,6 +104,8 @@ zval* hessian_dubbo_service_select_provider(zval *self){
 		self_providers = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("providers"), 1 TSRMLS_DC);
 
 		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(self_providers), &pos);
+
+		//todo:this function cause a memory blcok gc many times
 		ZVAL_STRING(&function_name, "urldecode", 1);
 
 		zval *provider;
@@ -204,6 +206,10 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	zval param1, param2;
 	zval *arg_params[2];
 	zval url_info, **query, arr_query_param, *params;
+	zval *options;
+	zval **option_version, **params_version;
+	char *key;
+	char *str_version, *str_group;
 
 	ZVAL_STRING(&function_name, "str_replace", 1);
 	ZVAL_STRING(&param1, "hessian:", 1);
@@ -213,11 +219,15 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	arg_params[2] = provider;
 
 	call_user_function(EG(function_table), NULL, &function_name, provider, 3, arg_params TSRMLS_CC);
+	zval_dtor(&param1);
+	zval_dtor(&function_name);
+
+		
 
 	ZVAL_STRING(&function_name, "parse_url", 1);
 	arg_params[0] = provider;
 	call_user_function(EG(function_table), NULL, &function_name, &url_info, 1, arg_params TSRMLS_CC);
-	efree(Z_STRVAL(function_name));
+	zval_dtor(&function_name);
 
 	
 	if (zend_hash_find(Z_ARRVAL(url_info), "query", strlen("query")+1, (void **)&query) != SUCCESS){
@@ -225,13 +235,16 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		return;
 	}
 	Z_TYPE_PP(query) = IS_STRING;
-	
+
+
+	//here has problem, cause memory
 	ZVAL_STRING(&function_name, "explode", 1);
 	ZVAL_STRING(&param1, "&", 1);
 	arg_params[0]  = &param1;
 	arg_params[1] = *query;
 	call_user_function(EG(function_table), NULL, &function_name, &arr_query_param, 2, arg_params TSRMLS_CC);
-	efree(Z_STRVAL(param1));
+	zval_dtor(&param1);
+	zval_dtor(&function_name);
 	
 	HashPosition pos;
 	zval **src_entry;
@@ -239,12 +252,14 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	//array_init_size(&arr, 2);
 	ZVAL_STRING(&param1, "=", 1);
 	
-	char *key;
-	zval *new_value;
+	
 	
 	ALLOC_ZVAL(params);
 	array_init_size(params, zend_hash_num_elements(Z_ARRVAL(arr_query_param)));
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL(arr_query_param), &pos);
+
+	char *value, *p;
+	int i;
 	
 	while (zend_hash_get_current_data_ex(Z_ARRVAL(arr_query_param), (void **)&src_entry, &pos) == SUCCESS) {
 		/*
@@ -252,26 +267,23 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
             		$params[$arrItem[0]] = $arrItem[1];
             */
             
-        zval arr_item, **key, **value;
-
-		arg_params[0]  = &param1;
-		arg_params[1] = *src_entry;
-		call_user_function(EG(function_table), NULL, &function_name, &arr_item, 2, arg_params TSRMLS_CC);
-		zend_hash_index_find(Z_ARRVAL(arr_item), 0, (void **)&key);
-		zend_hash_index_find(Z_ARRVAL(arr_item), 1, (void **)&value);
+        zval arr_item;
+		zval *new_value;
+		//zval **key, **value;
+		
+		p = Z_STRVAL_PP(src_entry);
+		if (strncmp(p, "version", 7) == 0){
+			str_version = (p+7+1);
+		}else if (strncmp(p, "group", 5) == 0){
+			str_group = (p+5+1);
+		}
 
 		//free array
 		//zval_copy_ctor(zvalue)
-		ALLOC_ZVAL(new_value);
-		Z_TYPE_P(new_value) = IS_STRING;
-		Z_STRVAL_P(new_value) = estrndup(Z_STRVAL_PP(value),  Z_STRLEN_PP(value));
-		Z_STRLEN_P(new_value) = Z_STRLEN_PP(value);
-		zend_hash_add(Z_ARRVAL_P(params), Z_STRVAL_PP(key),  Z_STRLEN_PP(key)+1, (void *)&new_value, sizeof(zval *), NULL);
-		zval_dtor(&arr_item);
-		
 		zend_hash_move_forward_ex(Z_ARRVAL(arr_query_param), &pos);
 	}
-	efree(Z_STRVAL(param1));
+	zval_dtor(&param1);
+	zval_dtor(&function_name);
 
 
 	/*
@@ -287,25 +299,31 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
         }
         */
 
-	zval *options, **option_version, **params_version;
-
 	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_DC);
-	zend_hash_find(Z_ARRVAL_P(options), "version", strlen("version")+1, (void **)&option_version TSRMLS_DC);
-	zend_hash_find(Z_ARRVAL_P(params), "version", strlen("version")+1, (void **)&params_version TSRMLS_DC);
+	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(options), "version", strlen("version")+1, (void **)&option_version TSRMLS_DC)){
+		zend_error(E_ERROR, "hessian_dubbo_service_format_provider provider version empty");
+		return;
+	}
 
-	if (0 != strncmp(Z_STRVAL_PP(option_version), Z_STRVAL_PP(params_version), Z_STRLEN_PP(option_version))){
+
+	if ( (0 != strncmp(Z_STRVAL_PP(option_version), str_version, Z_STRLEN_PP(option_version)))
+		){
 		zend_class_entry **ce_exception;
 		zend_hash_find(CG(class_table), "exception", sizeof("exception"), (void **) &ce_exception);
 		zend_throw_exception(*ce_exception, "version dont match service requirement", 0);
 		return;
 	}
 
-	if (SUCCESS == (zend_hash_find(Z_ARRVAL_P(options), "group", strlen("group")+1, (void **)&params_version TSRMLS_DC))){
-		//match group
-		zval **option_group, **params_group;
 
-		zend_hash_find(Z_ARRVAL_P(options), "group", strlen("group")+1, (void **)&option_group TSRMLS_DC);
-		zend_hash_find(Z_ARRVAL_P(params), "group", strlen("group")+1, (void **)&params_group TSRMLS_DC);
+	/*
+	//dont checout group
+	zval **option_group, **params_group;
+	if (SUCCESS == (zend_hash_find(Z_ARRVAL_P(options), "group", strlen("group")+1, (void **)&option_group TSRMLS_DC))){
+		//match group
+		if (SUCCESS != zend_hash_find(Z_ARRVAL_P(params), "group", strlen("group")+1, (void **)&params_group TSRMLS_DC)){
+			zend_error(E_ERROR, "hessian_dubbo_service_format_provider params group:%s empty", Z_STRVAL_PP(query));
+			return;
+		}
 
 		if (0 != strncmp(Z_STRVAL_PP(option_group), Z_STRVAL_PP(params_group), Z_STRLEN_PP(option_group))){
 			zend_class_entry **ce_exception;
@@ -315,15 +333,8 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		}
 	}
 
-
-	/*
-		 foreach ($this->options as $key => $value) {
-            if ('connectTimeout' == $key) {
-                $value = $value * 1000;
-            }
-            $params[$key] = $value;
-        }
-      */
+    */
+    
 	char *string_key;
 	uint string_key_len;
 	ulong num_key;
@@ -334,7 +345,7 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		if (strncasecmp(string_key, "connectTimeout", string_key_len) == 0){
 			Z_LVAL_PP(src_entry) *= 1000;
 		}
-		zend_hash_add(Z_ARRVAL_P(params), string_key, string_key_len+1, src_entry, sizeof(zval *), NULL TSRMLS_DC);
+		zend_hash_add(Z_ARRVAL(arr_query_param), string_key, string_key_len+1, src_entry, sizeof(zval *), NULL TSRMLS_DC);
 		zend_hash_move_forward_ex(Z_ARRVAL_P(options), &pos);
 	}
 
@@ -376,17 +387,19 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	}
 	buf = strcat(buf, "?");
 
-	int i=0;
+	i=0;
 	char *str_key;
 	uint key_length;
 	ulong num_index;
 	
-	efree(Z_STRVAL(function_name));
+	zval_dtor(&function_name);
+
 
 	ZVAL_STRING(&function_name, "urlencode", 1);
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(params), &pos);
-	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(params), (void **)&src_entry, &pos) == SUCCESS) {
-		zend_hash_get_current_key_ex(Z_ARRVAL_P(params), &str_key, &key_length, &num_index, 0,  &pos);
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL(arr_query_param), &pos);
+	while (zend_hash_get_current_data_ex(Z_ARRVAL(arr_query_param), (void **)&src_entry, &pos) == SUCCESS) {
+		
+		zend_hash_get_current_key_ex(Z_ARRVAL(arr_query_param), &str_key, &key_length, &num_index, 0,  &pos);
 		if(i>0){
 			buf = strcat(buf, "&");
 		}
@@ -394,14 +407,19 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		buf = strcat(buf, "=");
 		// $provider .= $key . '=' . urlencode($value);
 		arg_params[0] = *src_entry;
+
+		/*
+		//todo:dont urlencode
 		call_user_function(EG(function_table), NULL, &function_name, *src_entry, 1, arg_params TSRMLS_DC);
 		if (Z_TYPE_PP(src_entry) == IS_STRING && Z_STRLEN_PP(src_entry) > 0){
 			buf = strcat(buf, Z_STRVAL_PP(src_entry));
 		}
+		*/
+		
 		++i;
-		zend_hash_move_forward_ex(Z_ARRVAL_P(params), &pos);
+		zend_hash_move_forward_ex(Z_ARRVAL(arr_query_param), &pos);
 	}
-	efree(Z_STRVAL(function_name));
+	zval_dtor(&function_name);
 	FREE_ZVAL(params);
 
 
@@ -448,6 +466,10 @@ void get_service_by_name(zval *name, zval *storage, zval* retval){
 	zval config, **providers, **consumers;
 
 	dubbo_file_storage_get(storage, name, &config);
+	if (Z_TYPE(config) != IS_ARRAY){
+		php_error_docref(NULL, E_WARNING, "%s config file is not json format");
+		return;
+	}
 
 	object_init_ex(retval, dubbo_service_class_entry);
 	zend_hash_find(Z_ARRVAL(config), ZEND_STRS("providers"), (void **)&providers);
@@ -617,7 +639,9 @@ static PHP_METHOD(DubboService, call)
 	
 	self = getThis();
 	provider = hessian_dubbo_service_select_provider(self);
-	provider = hessian_dubbo_service_format_provider(self, provider);
+	//provider = hessian_dubbo_service_format_provider(self, provider);
+	Z_STRVAL_P(provider) = "http://www.baidu.com";
+	Z_STRLEN_P(provider) = strlen( "http://www.baidu.com");
 
 	/*
 		 $options                     = array();

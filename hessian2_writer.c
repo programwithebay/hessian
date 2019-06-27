@@ -164,7 +164,7 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 	zval *params[2];
 	char *buf, *p;
 	int i;
-	
+	long buf_len;
 
 
 
@@ -178,15 +178,21 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 		*/
 
 		zval res[2];
-		hessian2_writer_write_string_data(self, value, &res[0]);
+		hessian2_writer_write_string_data(self, value, &res[1]);
 
 		ZVAL_STRING(&function_name, "pack", 1);
 		ZVAL_STRING(&param1, "C", 1);
 		params[0] = &param1;
 		params[1] = &z_len;
-		call_user_function(EG(function_table), NULL, &function_name, &res[1], 2, params TSRMLS_DC);
-
-		RETURN_STRING(strcat(Z_STRVAL(res[0]), Z_STRVAL(res[1])), 0);
+		call_user_function(EG(function_table), NULL, &function_name, &res[0], 2, params TSRMLS_DC);
+		
+		buf_len = Z_STRLEN(res[0]) + Z_STRLEN(res[1]);
+		buf = pemalloc(buf_len + 1, 0);
+		memcpy(buf, Z_STRVAL(res[0]), Z_STRLEN(res[0]));
+		p = buf +  Z_STRLEN(res[0]);
+		memcpy(p, Z_STRVAL(res[1]), Z_STRLEN(res[1]));
+		buf[buf_len + 1] = 0;
+		RETURN_STRINGL(buf, buf_len, 0);
 	}else if (Z_LVAL(z_len) < 1024){
 		/*
 			$b0 = 0x30 + ($len >> 8);
@@ -209,7 +215,8 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 
 		hessian2_writer_write_string_data(self, value, res[2]);
 
-		buf = pemalloc(Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]) + Z_STRLEN_P(res[2]), 0);
+		buf_len = Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]) + Z_STRLEN_P(res[2]);
+		buf = pemalloc(buf_len + 1, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeString alloc memory error");
 			return;
@@ -219,8 +226,8 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 			memcpy(p, Z_STRVAL_P(res[i]), Z_STRLEN_P(res[i]));
 			p +=  Z_STRLEN_P(res[i]);
 		}
-
-		RETURN_STRING(buf, 0);
+		buf[buf_len + 1] = 0;
+		RETURN_STRINGL(buf, buf_len, 0);
 	}else{
 		/*
 			$stream = '';
@@ -239,7 +246,8 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 
 		hessian2_writer_write_string_data(self, value, res[1]);
 
-		buf = pemalloc(Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]) + 1, 0);
+		buf_len = Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]);
+		buf = pemalloc(buf_len + 1, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeString alloc memory error");
 			return;
@@ -250,8 +258,8 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 			memcpy(p, Z_STRVAL_P(res[i]), Z_STRLEN_P(res[i]));
 			p +=  Z_STRLEN_P(res[i]);
 		}
-
-		RETURN_STRING(buf, 0);
+		buf[buf_len + 1]  = 0;
+		RETURN_STRINGL(buf, buf_len, 0);
 	}
 }
 
@@ -262,10 +270,11 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 */
 void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 {
-	zval function_name, param1, param2;
+	zval function_name, *param1, *param2;
 	zval *params[2];
 	char *buf, *p;
 	int i;
+	long buf_len;
 	
 
 
@@ -274,17 +283,22 @@ void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 			return pack('c', $value + 0x90);
 	*/
 
+	ALLOC_ZVAL(param1);
+	ALLOC_ZVAL(param2);
 	ZVAL_STRING(&function_name, "pack", 1);
 	if (BETWEEN(value, -16, 47)){
 		zval res;
 		
 		//return pack('c', $value + 0x90);
-		ZVAL_STRING(&param1, "c", 1);
-		ZVAL_LONG(&param2, value + 0x90);
-		params[0] = &param1;
-		params[1] = &param2;
+		ZVAL_STRING(param1, "c", 1);
+		ZVAL_LONG(param2, value + 0x90);
+		params[0] = param1;
+		params[1] = param2;
 
 		call_user_function(EG(function_table), NULL, &function_name, &res, 2, params TSRMLS_DC);
+		FREE_ZVAL(param1);
+		FREE_ZVAL(param2);
+		
 		RETURN_ZVAL(&res, 1, NULL);
 	}else if(BETWEEN(value, -2048, 2047)){
 		/*
@@ -298,14 +312,33 @@ void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 		zval res[2];
 		
 		b0 = 0xc8 + (value >> 8);
-		ZVAL_STRING(&param1, "c", 1);
-		ZVAL_LONG(&param2, b0);
+		ZVAL_STRING(param1, "c", 1);
+		ZVAL_LONG(param2, b0);
 		call_user_function(EG(function_table), NULL, &function_name, &res[0], 2, params TSRMLS_DC);
 
-		ZVAL_LONG(&param2, value);
+		ZVAL_LONG(param2, value);
 		call_user_function(EG(function_table), NULL, &function_name, &res[1], 2, params TSRMLS_DC);
 
-		RETURN_STRING(strcat(Z_STRVAL(res[0]), Z_STRVAL(res[1])), 1);
+
+		buf_len = Z_STRLEN(res[0]) + Z_STRLEN(res[1]);
+		buf = pemalloc(buf_len + 1, 0);
+		if (!buf){
+			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeInt alloc memory error");
+			return;
+		}
+		p = buf;
+		for(i=0; i<2; i++){
+			memcpy(p, Z_STRVAL(res[i]), Z_STRLEN(res[i]));
+			p +=  Z_STRLEN(res[i]);
+		}
+		buf[buf_len + 1] = 0;
+
+
+		FREE_ZVAL(param1);
+		FREE_ZVAL(param2);
+
+		
+		RETURN_STRINGL(buf, buf_len, 0);
 	}else if (BETWEEN(value, -262144, 262143)){
 		/*
 			$b0 = 0xd4 + ($value >> 16);
@@ -323,21 +356,22 @@ void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 		b0 = 0xd4 + (value >> 16);
 		b1 = value >> 8;
 		
-		ZVAL_STRING(&param1, "c", 1);
-		ZVAL_LONG(&param2, b0);
-		params[0] = &param1;
-		params[1] = &param2;
+		ZVAL_STRING(param1, "c", 1);
+		ZVAL_LONG(param2, b0);
+		params[0] = param1;
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[0], 2, params TSRMLS_DC);
 
-		ZVAL_LONG(&param2, b1);
-		params[1] = &param2;
+		ZVAL_LONG(param2, b1);
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[1], 2, params TSRMLS_DC);
 
-		ZVAL_LONG(&param2, value);
-		params[1] = &param2;
+		ZVAL_LONG(param2, value);
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[2], 2, params TSRMLS_DC);
 
-		buf = pemalloc(Z_STRLEN(res[0]) + Z_STRLEN(res[1]) + Z_STRLEN(res[2]), 0);
+		buf_len = Z_STRLEN(res[0]) + Z_STRLEN(res[1]) + Z_STRLEN(res[2]);
+		buf = pemalloc(buf_len + 1, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeInt alloc memory error");
 			return;
@@ -347,8 +381,13 @@ void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 			memcpy(p, Z_STRVAL(res[i]), Z_STRLEN(res[i]));
 			p +=  Z_STRLEN(res[i]);
 		}
+		buf[buf_len + 1] = 0;
 
-		RETURN_STRING(buf, 0);
+		FREE_ZVAL(param1);
+		FREE_ZVAL(param2);
+
+		
+		RETURN_STRINGL(buf, buf_len, 0);
 	}else{
 		/*
 			$stream = 'I';
@@ -361,25 +400,26 @@ void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 
 		zval res[4];
 
-		ZVAL_STRING(&param1, "c", 1);
-		ZVAL_LONG(&param2, value >> 24);
-		params[0] = &param1;
-		params[1] = &param2;
+		ZVAL_STRING(param1, "c", 1);
+		ZVAL_LONG(param2, value >> 24);
+		params[0] = param1;
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[0], 2, params TSRMLS_DC);
 
-		ZVAL_LONG(&param2, value >> 16);
-		params[1] = &param2;
+		ZVAL_LONG(param2, value >> 16);
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[1], 2, params TSRMLS_DC);
 
-		ZVAL_LONG(&param2, value >> 8);
-		params[1] = &param2;
+		ZVAL_LONG(param2, value >> 8);
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[2], 2, params TSRMLS_DC);
 
-		ZVAL_LONG(&param2, value);
-		params[1] = &param2;
+		ZVAL_LONG(param2, value);
+		params[1] = param2;
 		call_user_function(EG(function_table), NULL, &function_name, &res[3], 2, params TSRMLS_DC);
 
-		buf = pemalloc(Z_STRLEN(res[0]) + Z_STRLEN(res[1]) + Z_STRLEN(res[2]) + Z_STRLEN(res[3]), 0);
+		buf_len = Z_STRLEN(res[0]) + Z_STRLEN(res[1]) + Z_STRLEN(res[2]) + Z_STRLEN(res[3]);
+		buf = pemalloc(buf_len + 1, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeInt alloc memory error");
 			return;
@@ -389,8 +429,13 @@ void hessian2_writer_write_int(zval *self, long value, zval *return_value)
 			memcpy(p, Z_STRVAL(res[i]), Z_STRLEN(res[i]));
 			p +=  Z_STRLEN(res[i]);
 		}
+		buf[buf_len + 1] = 0;
 
-		RETURN_STRING(buf, 0);
+
+		FREE_ZVAL(param1);
+		FREE_ZVAL(param2);
+		
+		RETURN_STRINGL(buf, buf_len, 0);
 	}
 }
 
@@ -515,7 +560,9 @@ void hessian2_writer_write_value(zval *self, zval *value, zval *return_value)
 
 	ZVAL_STRING(&function_name, "resolveDispatch", 1);
 	params[0] = &type;
-	call_user_function(NULL, &self, &function_name, dispatch, 1, params TSRMLS_DC);
+	ALLOC_ZVAL(dispatch);
+	hessian_call_class_function_helper(self, &function_name, 1,params, dispatch);
+	//call_user_function(NULL, &self, &function_name, dispatch, 1, params TSRMLS_DC);
 
 	/*
 		if(is_object($value)){
@@ -531,10 +578,12 @@ void hessian2_writer_write_value(zval *self, zval *value, zval *return_value)
 	if (Z_TYPE_P(value)== IS_OBJECT){
 		zval *filter_container,  *filter;
 
+		ALLOC_ZVAL(filter);
 		filter_container = zend_read_property(NULL, self, ZEND_STRL("filterContainer"), 1 TSRMLS_DC);
 		ZVAL_STRING(&function_name, "getCallback", 1);
 		params[0] = value;
-		call_user_function(NULL, &filter_container, &function_name, filter, 1, params TSRMLS_DC);
+		hessian_call_class_function_helper(filter_container, &function_name, 1, params, filter);
+		//call_user_function(NULL, &filter_container, &function_name, filter, 1, params TSRMLS_DC);
 
 		if (i_zend_is_true(filter)){
 			/*
@@ -545,21 +594,24 @@ void hessian2_writer_write_value(zval *self, zval *value, zval *return_value)
 				$ntype = gettype($value);
 				
 			*/
-			zval arr, *res;
+			zval arr, res;
 			
 			array_init_size(&arr, 2);
-			zend_hash_next_index_insert(Z_ARRVAL(arr), &value, sizeof(zval **), NULL);
-			zend_hash_next_index_insert(Z_ARRVAL(arr), &self, sizeof(zval **), NULL);
+			zend_hash_next_index_insert(Z_ARRVAL(arr), &value, sizeof(zval *), NULL);
+			zend_hash_next_index_insert(Z_ARRVAL(arr), &self, sizeof(zval *), NULL);
 
 			ZVAL_STRING(&function_name, "doCallback", 1);
 			params[0] = filter;
 			params[1] = &arr;
+			hessian_call_class_function_helper(filter_container, &function_name, 2, params, &res);
 
-			call_user_function(NULL, &filter_container, &function_name, res, 2, params TSRMLS_DC);
-			if (instanceof_function(Z_OBJCE_P(res), hessian_stream_result_entry TSRMLS_DC)){
+			//call_user_function(NULL, &filter_container, &function_name, res, 2, params TSRMLS_DC);
+			if ((IS_OBJECT == Z_TYPE(res))
+					&& instanceof_function(Z_OBJCE(res), hessian_stream_result_entry TSRMLS_DC)){
 				zval *stream;
 				
-				stream = zend_read_property(NULL, res, ZEND_STRL("stream"), 1 TSRMLS_DC);
+				stream = zend_read_property(NULL, &res, ZEND_STRL("stream"), 1 TSRMLS_DC);
+				FREE_ZVAL(filter);
 				RETURN_ZVAL(stream, 1, NULL);
 			}
 
@@ -576,16 +628,21 @@ void hessian2_writer_write_value(zval *self, zval *value, zval *return_value)
 			if (hessian2_writer_compare(&type, &ntype) == 0){
 				ZVAL_STRING(&function_name, "resolveDispatch", 1);
 				params[0] = &ntype;
-				call_user_function(NULL, &self, &function_name, &ntype, 1, params TSRMLS_DC);
+				hessian_call_class_function_helper(self, &function_name, 1, params, &ntype);
+				//call_user_function(NULL, &self, &function_name, &ntype, 1, params TSRMLS_DC);
 			}
 		}
+		FREE_ZVAL(filter);
 	}
 
 	//$data = $this->$dispatch($value);
 	zval  data;
 
 	params[0] = value;
-	call_user_function(NULL, &self, dispatch, &data, 1, params TSRMLS_DC);
+	ZVAL_STRING(&function_name, Z_STRVAL_P(dispatch), 1);
+	FREE_ZVAL(dispatch);
+	hessian_call_class_function_helper(self, &function_name, 1, params, &data);
+	//call_user_function(NULL, &self, dispatch, &data, 1, params TSRMLS_DC);
 
 	RETURN_ZVAL(&data, 1, NULL);
 }
@@ -618,6 +675,7 @@ static PHP_METHOD(Hessian2Writer, resolveDispatch)
 	zval *self, *type;
 	char dispatch[16], *buf;
 	int len;
+	zval retval;
 	
 	self = getThis();
 
@@ -666,13 +724,15 @@ static PHP_METHOD(Hessian2Writer, resolveDispatch)
 	zval *params[1];
 	char err_buf[256];
 
+
+	//todo:call method adjust
 	sprintf(err_buf, "dispatch %s", dispatch);
 	ZVAL_STRING(&param1, err_buf, 1);
 	ZVAL_STRING(&function_name, "logMsg", 1);
 	params[0] = &param1;
-	call_user_function(NULL, &self, &function_name, NULL, 1, params TSRMLS_DC);
+	call_user_function(NULL, &self, &function_name, &retval, 1, params TSRMLS_DC);
 
-	RETURN_STRING(buf, 1);
+	RETURN_STRINGL(dispatch, len, 1);
 }
 
 /*
@@ -718,15 +778,20 @@ static PHP_METHOD(Hessian2Writer, writeArray)
 	*/
 	self = getThis();
 	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_CC);
-	ZVAL_STRING(&function_name, "getReference", 1);
-	params[0] = array;
-	call_user_function(NULL, &ref_map, &function_name, ref_index, 1, params TSRMLS_DC);
+
+	//ZVAL_STRING(&function_name, "getReference", 1);
+	//params[0] = array;
+	
+	hessian_call_class_function_helper(ref_map, &function_name, 1, params, ref_index);
+	//call_user_function(NULL, &ref_map, &function_name, ref_index, 1, params TSRMLS_DC);
+	
 	if (!(Z_TYPE_P(ref_index) == IS_BOOL && Z_BVAL_P(ref_index) <= 0)){
-		zval *res;
+		zval res;
 		ZVAL_STRING(&function_name, "writeReference", 1);
 		params[0] = ref_index;
-		call_user_function(NULL, &ref_map, &function_name, res, 1, params TSRMLS_DC);
-		RETURN_ZVAL(res, 1, NULL);
+		hessian_call_class_function_helper(ref_map, &function_name, 1, params, &res);
+		//call_user_function(NULL, &ref_map, &function_name, res, 1, params TSRMLS_DC);
+		RETURN_ZVAL(&res, 1, NULL);
 	}
 
 
@@ -1001,7 +1066,7 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 	zval *self, *value;
 	char *name;
 	zend_uint name_len;
-	zval *ref_map, *index, *class_def, *z_class, *type;
+	zval *ref_map, index, *class_def, *z_class, *type;
 	zval function_name, param1;
 	zval *params[2];
 	int total, i;
@@ -1024,16 +1089,16 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 		$index = $this->refmap->getClassIndex($class);
 	*/
 	ALLOC_ZVAL(z_class);
-	ZVAL_STRING(z_class, name, 1);
+	//ZVAL_STRING(z_class, name, 1);
 
 	zend_get_object_classname(value, (const char**)&name, &name_len TSRMLS_CC);
 	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_CC);
 	ZVAL_STRING(&function_name, "getClassIndex", 1);
 	params[0] = z_class;
 
-	call_user_function(NULL, &ref_map, &function_name, index, 1, params TSRMLS_DC);
+	hessian_call_class_function_helper(ref_map, &function_name, 1, params,  &index);
 
-	if (Z_TYPE_P(index) == IS_BOOL && Z_BVAL_P(index) < 1){
+	if (Z_TYPE(index) == IS_BOOL && Z_BVAL(index) < 1){
 		zval *target, *props;
 		/*
 			$classdef = new HessianClassDef();
@@ -1069,7 +1134,8 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 
 		ZVAL_STRING(&function_name, "addClassDef", 1);
 		params[0] = class_def;
-		call_user_function(NULL, &ref_map, &function_name, index, 1, params TSRMLS_DC);
+		hessian_call_class_function_helper(ref_map, &function_name, 1, params, &index);
+		//call_user_function(NULL, &ref_map, &function_name, index, 1, params TSRMLS_DC);
 
 
 		/*
@@ -1162,17 +1228,17 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 		}
 	*/
 
-	if (Z_LVAL_P(index) < 16){
+	if (Z_LVAL(index) < 16){
 		ZVAL_STRING(&function_name, "pack", 1);
 		zval param2;
 		ZVAL_STRING(&param1, "c", 1);
-		ZVAL_LONG(&param2, Z_LVAL_P(index) + 0x60);
+		ZVAL_LONG(&param2, Z_LVAL(index) + 0x60);
 		params[0] = &param1;
 		params[1] = &param2;
 		call_user_function(EG(function_table), NULL, &function_name, zval_ptr[i], 2, params TSRMLS_DC);
 		buf_len += Z_STRLEN_P(zval_ptr[i]);
 	}else{
-		hessian2_writer_write_int(self, Z_LVAL_P(index), zval_ptr[i]);
+		hessian2_writer_write_int(self, Z_LVAL(index), zval_ptr[i]);
 		buf_len += Z_STRLEN_P(zval_ptr[i]) + 1;
 	}
 	++i;
@@ -1195,7 +1261,7 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 	}
 	zend_hash_next_index_insert(Z_ARRVAL_P(object_list), &value, sizeof(zval **), NULL);
 	class_list = zend_read_property(NULL, ref_map, ZEND_STRL("classlist"), 1 TSRMLS_CC);
-	if (SUCCESS == zend_hash_find(Z_ARRVAL_P(class_list), Z_STRVAL_P(index), Z_STRLEN_P(index), (void **)&src_entry)){
+	if (SUCCESS == zend_hash_find(Z_ARRVAL_P(class_list), Z_STRVAL(index), Z_STRLEN(index), (void **)&src_entry)){
 		class_def = src_entry;
 	}
 
@@ -1223,7 +1289,7 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 		p += old_buf_len;
 	}
 
-	if (Z_LVAL_P(index) < 16){
+	if (Z_LVAL(index) < 16){
 		memcpy(p, Z_STRVAL_P(zval_ptr[last]), Z_STRLEN_P(zval_ptr[last]));
 		p += Z_STRLEN_P(zval_ptr[last]);
 		++last;
@@ -1254,7 +1320,7 @@ static PHP_METHOD(Hessian2Writer, writeObject)
 	zval *ref_map,ref_index;
 	zval function_name;
 	zval *params[2];
-	zval *res;
+	zval res;
 	
 	self = getThis();
 
@@ -1273,20 +1339,23 @@ static PHP_METHOD(Hessian2Writer, writeObject)
 	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_CC);
 	ZVAL_STRING(&function_name, "getReference", 1);
 	params[0] = value;
-	call_user_function(NULL, &self, &function_name, &ref_index, 1, params TSRMLS_DC);
+	hessian_call_class_function_helper(ref_map, &function_name, 1, params, &ref_index);
+	//call_user_function(NULL, &self, &function_name, &ref_index, 1, params TSRMLS_DC);
 
-	if (Z_TYPE(ref_index) != IS_BOOL){
+	if (Z_BVAL(ref_index) > 0){
 		
 		ZVAL_STRING(&function_name, "writeReference", 1);
 		params[0] = &ref_index;
-		call_user_function(NULL, &self, &function_name, res, 1, params TSRMLS_DC);
-		RETURN_ZVAL(res, 1, NULL);
+		hessian_call_class_function_helper(self, &function_name, 1, params, &res);
+		//call_user_function(NULL, &self, &function_name, res, 1, params TSRMLS_DC);
+		RETURN_ZVAL(&res, 1, NULL);
 	}
 
 	ZVAL_STRING(&function_name, "writeObjectData", 1);
 	params[0] = value;
-	call_user_function(NULL, &self, &function_name, res, 1, params TSRMLS_DC);
-	RETURN_ZVAL(res, 1, NULL);
+	hessian_call_class_function_helper(self, &function_name, 1, params, &res);
+	//call_user_function(NULL, &self, &function_name, res, 1, params TSRMLS_DC);
+	RETURN_ZVAL(&res, 1, NULL);
 }
 
 /*
@@ -1745,6 +1814,8 @@ static PHP_METHOD(Hessian2Writer, writeDouble)
 	zval function_name, param1, param2;
 	zval *params[2];
 	char *buf, *p;
+	ulong buf_len;
+	int i;
 	
 	self = getThis();
 
@@ -1831,10 +1902,28 @@ static PHP_METHOD(Hessian2Writer, writeDouble)
 		call_user_function(EG(function_table), NULL, &function_name, res[0], 2, params TSRMLS_DC);
 
 		ZVAL_STRING(&function_name, "HessianUtils::floatBytes", 1);
-		params[0] = &value;
+		Z_DVAL(param1) = value;
+		params[0] = &param1;
 		call_user_function(EG(function_table), NULL, &function_name, res[1], 1, params TSRMLS_DC);
 
-		RETURN_STRING(strcat(Z_STRVAL_P(res[0]), Z_STRVAL_P(res[1])), 1);
+		buf_len = 0;
+		for(i=0; i<2; i++){
+			buf_len += Z_STRLEN_P(res[i]);
+		}
+		buf_len += 1;
+		buf = pemalloc(buf_len, 0);
+		if (!buf){
+			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeDouble alloc memory error");
+			return;
+		}
+		p = buf;
+		for(i=0; i<2; i++){
+			memcpy(p, Z_STRVAL_P(res[i]), Z_STRLEN_P(res[i]));
+			p +=  Z_STRLEN_P(res[i]);
+		}
+		*p = 0;
+
+		RETURN_STRINGL(buf, buf_len, 0);
 	}
 
 
@@ -1878,20 +1967,24 @@ static PHP_METHOD(Hessian2Writer, writeDouble)
 		params[1] = &param2;
 		call_user_function(EG(function_table), NULL, &function_name, res[4], 2, params TSRMLS_DC);
 
-		buf = pemalloc(Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]) +  Z_STRLEN_P(res[2])
-			+  Z_STRLEN_P(res[3]) +  Z_STRLEN_P(res[4]), 0);
+		buf_len = 0;
+		for(i=0; i<5; i++){
+			buf_len += Z_STRLEN_P(res[i]);
+		}
+		buf_len += 1;
+		buf = pemalloc(buf_len, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeDouble alloc memory error");
 			return;
 		}
 		p = buf;
-		int i;
 		for(i=0; i<5; i++){
 			memcpy(p, Z_STRVAL_P(res[i]), Z_STRLEN_P(res[i]));
 			p +=  Z_STRLEN_P(res[i]);
 		}
+		*p = 0;
 
-		RETURN_STRING(buf, 0);
+		RETURN_STRINGL(buf, buf_len, 0);
 	}
 
 
@@ -1905,7 +1998,13 @@ static PHP_METHOD(Hessian2Writer, writeDouble)
 	params[0] = param_value;
 	call_user_function(EG(function_table), NULL, &function_name, res[0], 2, params TSRMLS_DC);
 
-	RETURN_STRING(strcat("D", Z_STRVAL_P(res[0])), 1);
+	buf_len =  1 + Z_STRLEN_P(res[0]);
+	buf = pemalloc(buf_len + 1, 0);
+	buf[0] = 'D';
+	memcpy(buf+1, Z_STRVAL_P(res[0]), Z_STRLEN_P(res[0]));
+	buf[2 + Z_STRLEN_P(res[0])] = 0;
+	
+	RETURN_STRINGL(buf, buf_len, 0);
 }
 
 /*

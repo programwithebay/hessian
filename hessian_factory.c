@@ -73,15 +73,19 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	zval *params[2];
 	zval *filters, *date_array, *parse_filters;
 	zval *date_param1, *date_param2, *callback_handler;
+	zval *retval, arr_params;
 
+	ALLOC_ZVAL(retval);
 	ALLOC_ZVAL(parser);
 	INIT_ZVAL(*parser);
 	object_init_ex(parser, hessian2_service_parser_entry);
-	params[0] = stream;
-	params[1]= options;
+	array_init_size(&arr_params, 2);
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "__construct", 1);
-	call_user_function(NULL, &parser, &function_name, NULL, 2, params TSRMLS_CC);
+	params[0]  = stream;
+	params[1] = options;
+	hessian_call_class_function_helper(parser, &function_name, 2, params, retval);
+
 
 	/*
 		$filters['date'] = array('HessianDatetimeAdapter','toObject');
@@ -98,12 +102,12 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	ALLOC_ZVAL(date_param2);
 	INIT_ZVAL(*date_param2);
 	ZVAL_STRING(date_param2, "toObject", 1);
-	zend_hash_next_index_insert(Z_ARRVAL_P(date_array), &date_param1, sizeof(zval**), NULL);
-	zend_hash_next_index_insert(Z_ARRVAL_P(date_array), &date_param2, sizeof(zval**), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(date_array), &date_param1, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(date_array), &date_param2, sizeof(zval*), NULL);
 	
 	ALLOC_ZVAL(filters);
 	array_init_size(filters, 1);
-	zend_hash_add(Z_ARRVAL_P(filters), "date", 4, &date_array, sizeof(zval**), NULL);
+	zend_hash_add(Z_ARRVAL_P(filters), "date", 4, &date_array, sizeof(zval*), NULL);
 
 	parse_filters = zend_read_property(NULL, options, "parseFilters", strlen("parseFilters")-1, 1 TSRMLS_DC);
 	php_array_merge(Z_ARRVAL_P(filters), Z_ARRVAL_P(parse_filters), 0 TSRMLS_CC);
@@ -111,14 +115,21 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	ALLOC_ZVAL(callback_handler);
 	object_init_ex(callback_handler, hessian_callback_handler_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
+	zval_dtor(&arr_params);
+	array_init_size(&arr_params, 1);
 	params[0] = filters;
-	call_user_function(NULL, &callback_handler, &function_name, NULL, 1, params TSRMLS_CC);
+	hessian_call_class_function_helper(callback_handler, &function_name, 1, params, retval);
+	
+
 	
 	//$parser->setFilters(new HessianCallbackHandler($filters));
 	ZVAL_STRING(&function_name, "setFilters", 1);
+	zval_dtor(&arr_params);
+	array_init_size(&arr_params, 1);
 	params[0] = callback_handler;
-	call_user_function(NULL, &parser, &function_name, NULL, 1, params TSRMLS_CC);
+	hessian_call_class_function_helper(parser, &function_name, 1, params, retval);
 
+	FREE_ZVAL(retval);
 	
 	return parser;
 

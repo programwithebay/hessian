@@ -296,11 +296,10 @@ static PHP_METHOD(DubboStorageAbstract, decode)
 //return 
 //1:file
 //2:dir
-char stat_file(char *file_name, char mode){
+char stat_file(char *file_name, char mode, struct stat *file_stat){
 	char res;
-	struct stat file_stat;
 
-	if (stat(file_name, &file_stat) < 0)
+	if (stat(file_name, file_stat) < 0)
     {
         php_error_docref(NULL, E_ERROR, "get file:%s info error", file_name);
 		return;
@@ -308,11 +307,11 @@ char stat_file(char *file_name, char mode){
 	switch(mode){
 		case 0:
 			//test is a file
-			res = S_ISREG(file_stat.st_mode);
+			res = S_ISREG(file_stat->st_mode);
 			break;
 		case 1:
 			//test ia a dir
-			res = S_ISDIR(file_stat.st_mode);
+			res = S_ISDIR(file_stat->st_mode);
 			break;
 	}
 	return res;
@@ -328,6 +327,7 @@ zval* get_dubbo_file_storage_basepath(zval *this){
 	char *file_name;
 	zval *value;
 	int len, i;
+	struct stat file_stat;
 	
 
 	config = zend_read_property(dubbo_file_storage_class_entry, this, ZEND_STRL(BASE_PATH), 1 TSRMLS_DC);
@@ -344,7 +344,7 @@ zval* get_dubbo_file_storage_basepath(zval *this){
 
 	//�Ƿ�ΪĿ¼
 	file_name = Z_STRVAL_PP(value_ptr);
-    if (stat_file(file_name, 1) < 0)
+    if (stat_file(file_name, 1, &file_stat) < 0)
     {
         php_error_docref(NULL, E_ERROR, "%s is not a dir", file_name);
 		return;
@@ -382,9 +382,10 @@ void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 	zval *value;
 	int fd;
 	int nread;
-	char buf[8192];	//max length is 8k
+	char *buf;
 	long options = 0;
 	long depth = 512;
+	struct stat file_stat;
 
 
 	str = Z_STRVAL_P(z_str);
@@ -396,17 +397,23 @@ void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 	Z_STRLEN_P(base_path) = sizeof(path) - 1;	//todo -1 or not?
 
 	//is a file?
-	if (stat_file(path, 0) < 0){
+	if (stat_file(path, 0, &file_stat) < 0){
         php_error_docref(NULL, E_ERROR, "file:%s is not a file", path);
 		return;
     }
+
+	buf = pemalloc(file_stat.st_size+1, 0);
+	if (!buf){
+		zend_error(0, "dubbo_file_storage_get alloc stat buf error");
+		return;
+	}
 
 	//get content
 	fd = open(path, O_RDONLY);
 	if (-1 == fd){
 		php_error_docref(NULL, E_ERROR, "open file %s error", path);
 	}
-	nread = read(fd, buf, 8191);
+	nread = read(fd, buf, file_stat.st_size);
 	if (-1 == nread){
 		
 		php_error_docref(NULL, E_ERROR, "read file %s error", path);
@@ -415,6 +422,8 @@ void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 	close(fd);
 	options |=  PHP_JSON_OBJECT_AS_ARRAY;
 	php_json_decode_ex(return_value, buf, nread, options, depth TSRMLS_CC);
+
+	pefree(buf, 0);
 }
 
 

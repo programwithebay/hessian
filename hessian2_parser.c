@@ -313,9 +313,9 @@ void hessian2_parser_parse(zval *self, zval *code, zval *expect, zval *return_va
 			ZVAL_LONG(&z_num, num);
 			ZVAL_STRING(&function_name, hessian_rule_item.func, 1);
 			array_init_size(&param_arr, 2);
-			zend_hash_next_index_insert(Z_ARRVAL(param_arr), &code, sizeof(zval *), NULL);
-			zend_hash_next_index_insert(Z_ARRVAL(param_arr), &z_num, sizeof(zval *), NULL);
-			hessian_call_class_function_helper(self, &function_name, &param_arr, value);
+			params[0]  = &code;
+			params[1] = &z_num;
+			hessian_call_class_function_helper(self, &function_name, 2, params, value);
 
 			/*
 			if ($value instanceof HessianIgnoreCode) {

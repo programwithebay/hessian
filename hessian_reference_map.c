@@ -120,7 +120,7 @@ static PHP_METHOD(HessianReferenceMap, getClassIndex)
 	int class_len;
 	zval *class_list;
 	HashPosition pos;
-	zval *src_entry;
+	zval **src_entry;
 	char *var_name;
 	uint var_len;
 	ulong var_index;
@@ -147,7 +147,11 @@ static PHP_METHOD(HessianReferenceMap, getClassIndex)
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(class_list), (void **)&src_entry, &pos) == SUCCESS) {
 		zval *type;
 		key_type = zend_hash_get_current_key_ex(Z_ARRVAL_P(class_list), &var_name, &var_len, &var_index, 0, &pos);
-		type = zend_read_property(NULL, src_entry, ZEND_STRL("type"), 1 TSRMLS_DC);
+		if (Z_TYPE_P(*src_entry) != IS_OBJECT){
+			zend_hash_move_forward_ex(Z_ARRVAL_P(class_list), &pos);
+			continue;
+		}
+		type = zend_read_property(NULL, *src_entry, ZEND_STRL("type"), 1 TSRMLS_DC);
 		if (type && Z_TYPE_P(type) == IS_STRING){
 			if (strcmp(class_name, Z_STRVAL_P(type)) == 0){
 				int index;
@@ -198,8 +202,8 @@ static PHP_METHOD(HessianReferenceMap, getReference)
 {
 	zval *self, *object, *object_list;
 	HashPosition pos;
-	zval *entry;
-	zval *result;
+	zval **entry;
+	zval result;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &object) == FAILURE) {
 		RETURN_FALSE;
@@ -212,8 +216,12 @@ static PHP_METHOD(HessianReferenceMap, getReference)
 	object_list = zend_read_property(hessian_reference_map_entry, self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(object_list), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(object_list), (void **)&entry, &pos) == SUCCESS) {
-		if (SUCCESS == compare_function(result, entry, object TSRMLS_CC)){
-			RETURN_TRUE;
+		if (SUCCESS == compare_function(&result, *entry, object TSRMLS_CC)){
+			if (0 == Z_LVAL(result)){
+				RETURN_TRUE;
+			}else{
+				RETURN_FALSE;
+			}
 		}
 		zend_hash_move_forward_ex(Z_ARRVAL_P(object_list), &pos);
 	}
