@@ -28,7 +28,6 @@
 #include "php_hessian.h"
 #include "hessian_common.h"
 #include "php_hessian_int.h"
-//#include "Zend/zend_alloc.c"
 
 
 #define DECLARE_HESSIAN_RULE(index, type, func, desc) \
@@ -337,7 +336,7 @@ void register_hessian_ext_class(){
 
 	INIT_CLASS_ENTRY(ce_hessian_utils, "HessianUtils", hessian_utils_functions);
 	hessian_utils_entry =  zend_register_internal_class(&ce_hessian_utils TSRMLS_CC);
-	zend_declare_property_null(hessian_utils_entry, "littleEndian", sizeof("littleEndian")-1, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_utils_entry, "littleEndian", sizeof("littleEndian")-1, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC TSRMLS_CC);
 
 	zend_declare_class_constant_long(hessian_utils_entry, "pow32", sizeof("pow32")-1, 4294967296L TSRMLS_CC);
 

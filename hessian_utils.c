@@ -92,6 +92,7 @@ static PHP_METHOD(HessianUtils, setTimeZone)
 	zval *self;
 	zval function_name;
 	zval *params[1];
+	zval ret;
 	
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &timezone)) {
@@ -113,7 +114,8 @@ static PHP_METHOD(HessianUtils, setTimeZone)
 	if (i_zend_is_true(timezone)){
 		ZVAL_STRING(&function_name, "date_default_timezone_set", 1);
 		params[0] = timezone;
-		call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &ret, 1, params TSRMLS_DC);
+		zval_dtor(&function_name);
 	}else{
 		int old_error_reporting;
 		zval *tz;
@@ -121,13 +123,15 @@ static PHP_METHOD(HessianUtils, setTimeZone)
 		old_error_reporting = EG(error_reporting);
 
 		ZVAL_STRING(&function_name, "date_default_timezone_get", 1);
-		call_user_function(EG(function_table), NULL, &function_name, tz, 0, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &ret, 0, params TSRMLS_DC);
+		zval_dtor(&function_name);
 		
 		zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), "0", 1, ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
 
 		ZVAL_STRING(&function_name, "date_default_timezone_set", 1);
 		params[0] = tz;
-		call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &ret, 1, params TSRMLS_DC);
+		zval_dtor(&function_name);
 	}
 }
 
@@ -167,7 +171,7 @@ static PHP_METHOD(HessianUtils, isListKeys)
 */
 static PHP_METHOD(HessianUtils, isListIterate)
 {
-	zval *arr, *src_entry;
+	zval *arr, **src_entry;
 	zval *self;
 	HashPosition pos;
 	char *string_key;
@@ -198,9 +202,16 @@ static PHP_METHOD(HessianUtils, isListIterate)
 	k = 0;
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(arr), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(arr), (void **)&src_entry, &pos) == SUCCESS) {
+		string_key_len = 0;
 		zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &string_key, &string_key_len, &num_key, 0, &pos);
-		if (atoi(string_key) != k){
-			RETURN_FALSE;
+		if (string_key_len > 0){
+			if (atoi(string_key) != k){
+				RETURN_FALSE;
+			}
+		}else{
+			if (num_key != k){
+				RETURN_FALSE;
+			}
 		}
 		k++;
 		zend_hash_move_forward_ex(Z_ARRVAL_P(arr), &pos);
@@ -215,7 +226,7 @@ static PHP_METHOD(HessianUtils, isListIterate)
 */
 static PHP_METHOD(HessianUtils, isListFormula)
 {
-	zval *arr, *src_entry;
+	zval *arr, **src_entry;
 	HashPosition pos;
 	zval *self;
 	uint n,sum;
@@ -249,8 +260,13 @@ static PHP_METHOD(HessianUtils, isListFormula)
 	key_sum = 0;
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(arr), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(arr), (void **)&src_entry, &pos) == SUCCESS) {
+		string_key_len = 0;
 		zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &string_key, &string_key_len, &num_key, 0, &pos);
-		key_sum = atoi(string_key);
+		if (string_key_len > 0){
+			key_sum += atoi(string_key);
+		}else{
+			key_sum  += num_key;
+		}
 		zend_hash_move_forward_ex(Z_ARRVAL_P(arr), &pos);
 	}
 
@@ -278,8 +294,8 @@ static PHP_METHOD(HessianUtils, isLittleEndian)
 static PHP_METHOD(HessianUtils, floatBytes)
 {
 	zval *number, *little_endian;
-	zval *self, param1;
-	zval *bytes;
+	zval *self, *param1;
+	zval bytes;
 	zval function_name;
 	zval *params[2];
 	
@@ -299,21 +315,24 @@ static PHP_METHOD(HessianUtils, floatBytes)
 		return self::$littleEndian ? strrev($bytes) : $bytes; 
 	*/
 
-	little_endian = zend_read_property(hessian_utils_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	little_endian = zend_read_static_property(hessian_utils_entry, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
 	ZVAL_STRING(&function_name, "pack", 1);
-	ZVAL_STRING(&param1, "s", 1);
-	params[0] = &param1;
+	MAKE_STD_ZVAL(param1);
+	ZVAL_STRING(param1, "s", 1);
+	params[0] = param1;
 	params[1] = number;
-	call_user_function(EG(function_table),NULL, &function_name, bytes, 2, params TSRMLS_DC);
+	call_user_function(EG(function_table), NULL, &function_name, &bytes, 2, params TSRMLS_DC);
+	FREE_ZVAL(param1);
+	
 	if (i_zend_is_true(little_endian)){
 		char *n, *p, *e;
 		char *str;
 
-		str = Z_STRVAL_P(bytes);
-		n = emalloc(Z_STRLEN_P(bytes)+1);
+		str = Z_STRVAL(bytes);
+		n = emalloc(Z_STRLEN(bytes)+1);
 		p = n;
 
-		e = str + Z_STRLEN_P(bytes);
+		e = str + Z_STRLEN(bytes);
 
 		while (--e>=str) {
 			*p++ = *e;
@@ -321,9 +340,9 @@ static PHP_METHOD(HessianUtils, floatBytes)
 
 		*p = '\0';
 
-		RETVAL_STRINGL(n, Z_STRLEN_P(bytes), 0);
+		RETVAL_STRINGL(n, Z_STRLEN(bytes), 0);
 	}else{
-		RETURN_ZVAL(bytes, 1, NULL);
+		RETURN_ZVAL(&bytes, 1, NULL);
 	}
 }
 
@@ -334,8 +353,8 @@ static PHP_METHOD(HessianUtils, floatBytes)
 static PHP_METHOD(HessianUtils, doubleBytes)
 {
 	zval *number, *little_endian;
-	zval *self, param1;
-	zval *bytes;
+	zval *self, *param1;
+	zval bytes;
 	zval function_name;
 	zval *params[2];
 	
@@ -355,21 +374,24 @@ static PHP_METHOD(HessianUtils, doubleBytes)
 		return self::$littleEndian ? strrev($bytes) : $bytes; 
 	*/
 
-	little_endian = zend_read_property(hessian_utils_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	little_endian = zend_read_static_property(hessian_utils_entry, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
 	ZVAL_STRING(&function_name, "pack", 1);
-	ZVAL_STRING(&param1, "d", 1);
-	params[0] = &param1;
+	MAKE_STD_ZVAL(param1);
+	ZVAL_STRING(param1, "d", 1);
+	params[0] = param1;
 	params[1] = number;
-	call_user_function(EG(function_table),NULL, &function_name, bytes, 2, params TSRMLS_DC);
+	call_user_function(EG(function_table),NULL, &function_name, &bytes, 2, params TSRMLS_DC);
+	FREE_ZVAL(param1);
+	
 	if (i_zend_is_true(little_endian)){
 		char *n, *p, *e;
 		char *str;
 
-		str = Z_STRVAL_P(bytes);
-		n = emalloc(Z_STRLEN_P(bytes)+1);
+		str = Z_STRVAL(bytes);
+		n = emalloc(Z_STRLEN(bytes)+1);
 		p = n;
 
-		e = str + Z_STRLEN_P(bytes);
+		e = str + Z_STRLEN(bytes);
 
 		while (--e>=str) {
 			*p++ = *e;
@@ -377,9 +399,9 @@ static PHP_METHOD(HessianUtils, doubleBytes)
 
 		*p = '\0';
 
-		RETVAL_STRINGL(n, Z_STRLEN_P(bytes), 0);
+		RETVAL_STRINGL(n, Z_STRLEN(bytes), 0);
 	}else{
-		RETURN_ZVAL(bytes, 1, NULL);
+		RETURN_ZVAL(&bytes, 1, NULL);
 	}
 }
 
