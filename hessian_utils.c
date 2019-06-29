@@ -284,6 +284,56 @@ static PHP_METHOD(HessianUtils, isListFormula)
 */
 static PHP_METHOD(HessianUtils, isLittleEndian)
 {
+	zval* little_endian, matchine_long, index_long, compare_ret;
+	zval function_name;
+	zval *param1, *param2;
+	zval *params[2];
+	
+	little_endian = zend_read_static_property(hessian_utils_entry, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	if ( !(Z_TYPE_P(little_endian) == IS_NULL)){
+		RETURN_ZVAL(little_endian, 1, NULL);
+	}
+
+	/*
+		$machineLong = pack("L", 1);  // Machine dependent
+		$indepLong  = pack("N", 1);  // Machine independent
+		self::$littleEndian = $machineLong[0] != $indepLong[0];
+		return self::$littleEndian;
+	*/
+
+	MAKE_STD_ZVAL(param1);
+	MAKE_STD_ZVAL(param2);
+
+	ZVAL_STRING(&function_name, "pack", 1);
+	ZVAL_STRING(param1, "L", 1);
+	ZVAL_LONG(param2, 1);
+	params[0] = param1;
+	params[1] = param2;
+
+	call_user_function(EG(function_table), NULL, &function_name, &matchine_long, 2, params TSRMLS_DC);
+	zval_dtor(param1);
+
+	
+	ZVAL_STRING(param1, "N", 1);
+	params[0] = param1;
+
+	call_user_function(EG(function_table), NULL, &function_name, &index_long, 2, params TSRMLS_DC);
+	if (SUCCESS == compare_function(&compare_ret, &matchine_long, &index_long TSRMLS_DC)){
+		if (0 == Z_LVAL(compare_ret)){
+			ZVAL_BOOL(little_endian, 0);
+		}else{
+			ZVAL_BOOL(little_endian, 1);
+		}
+	}else{
+		ZVAL_BOOL(little_endian, 1);
+	}
+	
+	zval_dtor(param2);
+	zval_dtor(&function_name);
+	FREE_ZVAL(param1);
+	FREE_ZVAL(param2);
+
+	RETURN_ZVAL(little_endian, 1, NULL);
 }
 
 
@@ -323,6 +373,7 @@ static PHP_METHOD(HessianUtils, floatBytes)
 	params[1] = number;
 	call_user_function(EG(function_table), NULL, &function_name, &bytes, 2, params TSRMLS_DC);
 	FREE_ZVAL(param1);
+	zval_dtor(&function_name);
 	
 	if (i_zend_is_true(little_endian)){
 		char *n, *p, *e;
@@ -412,6 +463,8 @@ static PHP_METHOD(HessianUtils, doubleBytes)
 */
 static PHP_METHOD(HessianUtils, longFromBytes64)
 {
+	//done use
+	zend_error(E_CORE_ERROR, "not implement");
 	
 }
 
@@ -421,12 +474,12 @@ static PHP_METHOD(HessianUtils, longFromBytes64)
 static PHP_METHOD(HessianUtils, timestampFromBytes64)
 {
 	zval *bytes, *little_endian;
-	zval *self, param1;
+	zval *self, *param1;
 	zval function_name;
 	zval *params[2];
-	char sec1[5], sec2[5];
+	char sec1[4], sec2[4];
 	char *buf_bytes;
-	zval *z_pow32;
+	zval **z_pow32;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &bytes)) {
 		return;
@@ -456,21 +509,28 @@ static PHP_METHOD(HessianUtils, timestampFromBytes64)
 	memcpy(sec2, buf_bytes+4, 4);
 	sec2[4] = 0 ;
 
-	zval *b1, *b2;
-	zval format;
-	
+	zval b1, b2;
+	zval *format;
+
+
+	MAKE_STD_ZVAL(format);
+	MAKE_STD_ZVAL(param1);
+
+
 	ZVAL_STRING(&function_name, "unpack", 1);
-	ZVAL_STRING(&format, "N", 1);
-	params[0 ] = &format;
-	ZVAL_STRING(&param1, sec1, 1);
-	params[1] = &param1;
-	call_user_function(EG(function_table), NULL, &function_name, b1, 2, params TSRMLS_DC);
+	ZVAL_STRING(format, "N", 1);
+	params[0 ] = format;
+	ZVAL_STRINGL(param1, sec1, 4, 1);
+	params[1] = param1;
+	call_user_function(EG(function_table), NULL, &function_name, &b1, 2, params TSRMLS_DC);
 
-	ZVAL_STRING(&param1, sec2, 1);
-	params[1] = &param1;
-	call_user_function(EG(function_table), NULL, &function_name, b2, 2, params TSRMLS_DC);
+	ZVAL_STRINGL(param1, sec2,4,  1);
+	params[1] = param1;
+	call_user_function(EG(function_table), NULL, &function_name, &b2, 2, params TSRMLS_DC);
 
 
+	FREE_ZVAL(format);
+	FREE_ZVAL(param1);
 	/*
 		$res = $b2[1];
 		$num = ($b1[1] * self::pow32);
@@ -485,11 +545,18 @@ static PHP_METHOD(HessianUtils, timestampFromBytes64)
 	*/
 
 	
-	char res;
-	uint num;
+	double res;
+	double num;
+	zval **unpack_b1, **unpack_b2;
+
+	zend_hash_find(&hessian_utils_entry->constants_table, "pow32", sizeof("pow32"), (void **) &z_pow32);
+
+	//b1 and b2 type is array
+	zend_hash_index_find(Z_ARRVAL(b1), 1, (void**)&unpack_b1);
+	zend_hash_index_find(Z_ARRVAL(b2), 1, (void**)&unpack_b2);
 	
-	res = Z_STRVAL_P(b2)[1];
-	num = Z_STRVAL_P(b1)[1] * Z_LVAL_P(z_pow32);
+	res = Z_LVAL_PP(unpack_b2);
+	num =  Z_LVAL_PP(unpack_b1) * Z_LVAL_PP(z_pow32);
 
 	//why small than 0?
 	if (res < 0){
@@ -499,7 +566,7 @@ static PHP_METHOD(HessianUtils, timestampFromBytes64)
 	}
 	num = num / 1000;
 
-	RETURN_LONG(num);
+	RETURN_DOUBLE(num);
 }
 
 /*
