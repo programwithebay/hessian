@@ -36,7 +36,7 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_peek, 0, 0, 2)
 	ZEND_ARG_INFO(0, count) /* string */
-	ZEND_ARG_INFO(0, pos) /* string */
+	{"count", sizeof("count")-1,NULL, 0, 0, 0, 1, 0 },
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_stream_read, 0, 0, 1)
@@ -75,9 +75,11 @@ void hessian_stream_set_stream(zval *self, zval *data)
 	len = zend_read_property(NULL, self, ZEND_STRL("len"), 1 TSRMLS_DC);
 	Z_LVAL_P(len) = Z_STRLEN_P(data);
 	zend_update_property(NULL, self, ZEND_STRL("len"), len TSRMLS_DC);
+
 	//pos
+	pos = zend_read_property(NULL, self, ZEND_STRL("pos"), 1 TSRMLS_DC);
 	ZVAL_LONG(pos, 0);
-	zend_update_property(NULL, self, ZEND_STRL("pos"), pos TSRMLS_DC);
+	//zend_update_property(NULL, self, ZEND_STRL("pos"), pos TSRMLS_DC);
 }
 
 

@@ -59,12 +59,14 @@ void hessian_curl_transport_test_available(zval *self)
 			throw new Exception('You need to enable the CURL extension to use the curl transport');
 	*/
 	ZVAL_STRING(&function_name, "function_exists", 1);
-	ALLOC_ZVAL(param1);
+	MAKE_STD_ZVAL(param1);
 	ZVAL_STRING(param1, "curl_init", 1);
 	params[0] = param1;
 
 	call_user_function(EG(function_table), NULL, &function_name, &retval, 1, params  TSRMLS_DC);
-	FREE_ZVAL(param1);
+	zval_dtor(&function_name);
+	zval_dtor(param1);
+	
 	if (Z_BVAL(retval) < 1){
 		zend_error(E_WARNING, "You need to enable the CURL extension to use the curl transport", 0);
 	}
@@ -95,7 +97,7 @@ static PHP_METHOD(HessianCURLTransport, getMetadata)
 	zval *self, *meta_data;
 
 	self = getThis();
-	meta_data = zend_read_property(NULL, self, ZEND_STRL("metaData"), 1 TSRMLS_DC);
+	meta_data = zend_read_property(NULL, self, ZEND_STRL("metadata"), 1 TSRMLS_DC);
 	RETURN_ZVAL(meta_data, 1, NULL);
 }
 
@@ -111,18 +113,18 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	zval function_name;
 	zval *params[2];
 	zval *ch;
-	zval curl_post, *p_curl_post;
-	zval curl_follow_location, *p_curl_follow_location;
-	zval curl_return_transfer, *p_curl_return_transfer;
-	zval curl_opt_header, *p_curl_opt_header, curl_header_content_type, *p_curl_header_content_type;
+	zval *curl_post;
+	zval *curl_follow_location;
+	zval *curl_return_transfer;
+	zval *curl_opt_header, *curl_header_content_type;
 	zval *transport_options;
 	zval **find_res;
 
 
 	transport_options = zend_read_property(NULL, options, ZEND_STRL("transportOptions"), 1 TSRMLS_DC);
 
-	ALLOC_ZVAL(retval);
-	ALLOC_ZVAL(ch);
+	MAKE_STD_ZVAL(retval);
+	MAKE_STD_ZVAL(ch);
 	ZVAL_STRING(&function_name, "curl_init", 1);
 	params[0] = url;
 	call_user_function(EG(function_table), NULL, &function_name, ch, 1, params TSRMLS_DC);
@@ -131,44 +133,46 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 
 	
 	//CURLOPT_URL
-	ALLOC_ZVAL(curl_options);
+	MAKE_STD_ZVAL(curl_options);
+	MAKE_STD_ZVAL(curl_post);
 	array_init_size(curl_options, 6);
 	zend_hash_index_update(Z_ARRVAL_P(curl_options), 10002, &url, sizeof(zval*), NULL);
-	p_curl_post = &curl_post;
-	Z_TYPE(curl_post) = IS_LONG;
-	Z_LVAL(curl_post) = 1;
+	Z_TYPE_P(curl_post) = IS_LONG;
+	Z_LVAL_P(curl_post) = 1;
 	//CURLOPT_POST
-	zend_hash_index_update(Z_ARRVAL_P(curl_options), 47, &p_curl_post, sizeof(zval*), NULL);
+	zend_hash_index_update(Z_ARRVAL_P(curl_options), 47, &curl_post, sizeof(zval*), NULL);
 	//CURLOPT_POSTFIELDS
 	zend_hash_index_update(Z_ARRVAL_P(curl_options), 10015, &data, sizeof(zval*), NULL);
-
+	
 
 	//CURLOPT_FOLLOWLOCATION
-	p_curl_follow_location = &curl_follow_location;
-	ZVAL_BOOL(&curl_follow_location, 1);
-	zend_hash_index_update(Z_ARRVAL_P(curl_options), 52, &p_curl_follow_location, sizeof(zval*), NULL); 
-
+	MAKE_STD_ZVAL(curl_follow_location);
+	ZVAL_BOOL(curl_follow_location, 1);
+	zend_hash_index_update(Z_ARRVAL_P(curl_options), 52, &curl_follow_location, sizeof(zval*), NULL); 
+	
+	
 
 	//CURLOPT_RETURNTRANSFER
-	p_curl_return_transfer = &curl_return_transfer;
-	Z_TYPE(curl_return_transfer) = IS_LONG;
-	Z_LVAL(curl_return_transfer) = 1;
-	zend_hash_index_update(Z_ARRVAL_P(curl_options), 19913, &p_curl_return_transfer, sizeof(zval*), NULL);
+	MAKE_STD_ZVAL(curl_return_transfer);
+	Z_TYPE_P(curl_return_transfer) = IS_LONG;
+	Z_LVAL_P(curl_return_transfer) = 1;
+	zend_hash_index_update(Z_ARRVAL_P(curl_options), 19913, &curl_return_transfer, sizeof(zval*), NULL);
 
 
 	//CURLOPT_HTTPHEADER
-	array_init_size(&curl_opt_header, 1);
-	ZVAL_STRING(&curl_header_content_type, "Content-Type: application/binary", 1);
-	p_curl_header_content_type = &curl_header_content_type;
-	zend_hash_next_index_insert(Z_ARRVAL(curl_opt_header), &p_curl_header_content_type, sizeof(zval *), NULL);
-	p_curl_opt_header = &curl_opt_header;
-	zend_hash_index_update(Z_ARRVAL_P(curl_options), 10023, &p_curl_opt_header, sizeof(zval*), NULL);
+	MAKE_STD_ZVAL(curl_opt_header);
+	array_init_size(curl_opt_header, 1);
+	MAKE_STD_ZVAL(curl_header_content_type);
+	ZVAL_STRING(curl_header_content_type, "Content-Type: application/binary", 1);
+	zend_hash_next_index_insert(Z_ARRVAL_P(curl_opt_header), &curl_header_content_type, sizeof(zval *), NULL);
+	zend_hash_index_update(Z_ARRVAL_P(curl_options), 10023, &curl_opt_header, sizeof(zval*), NULL);
 
 	
 	if (Z_TYPE_P(transport_options) == IS_ARRAY){
 		if (SUCCESS == zend_hash_index_find(Z_ARRVAL_P(transport_options), 10023, (void **)find_res)){
 			//$curlOptions[CURLOPT_HTTPHEADER] = array_merge($curlOptions[CURLOPT_HTTPHEADER]	, $extra[CURLOPT_HTTPHEADER]);
-			php_array_merge(Z_ARRVAL_P(p_curl_opt_header), Z_ARRVAL_P(*find_res), 0 TSRMLS_DC);
+			php_array_merge(Z_ARRVAL_P(curl_opt_header), Z_ARRVAL_P(*find_res), 0 TSRMLS_DC);
+			zend_hash_index_update(Z_ARRVAL_P(curl_options), 10023, &curl_opt_header, sizeof(zval*), NULL);
 		}
 		//zend_hash_index_update(Z_ARRVAL(curl_options), 10023, &p_curl_opt_header, sizeof(zval*), NULL);
 		php_array_merge(Z_ARRVAL_P(curl_options), Z_ARRVAL_P(transport_options), 0 TSRMLS_DC);
@@ -179,9 +183,15 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	params[0] = ch;
 	params[1] = curl_options;
 	call_user_function(EG(function_table), NULL, &function_name, retval, 2, params TSRMLS_CC);
-	zval_dtor(&function_name);
-	FREE_ZVAL(curl_options);
 
+	//free mem
+	zval_dtor(&function_name);
+	zval_dtor(curl_follow_location);
+	zval_dtor(curl_header_content_type);
+	zval_dtor(curl_opt_header);
+	zval_dtor(curl_options);
+	zval_dtor(curl_post);
+	zval_dtor(curl_return_transfer);
 	
 	/*
 	$result = curl_exec($ch);
@@ -195,37 +205,40 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	*/
 
 	
-	zval *result, *curl_info, curl_code_param, *curl_code, *curl_error;
+	zval *result, *curl_info, *curl_code_param, *curl_code, *curl_error;
 
-	ALLOC_ZVAL(result);
+	MAKE_STD_ZVAL(result);
 	ZVAL_STRING(&function_name, "curl_exec", 1);
 	params[0] = ch;
 	call_user_function(EG(function_table), NULL, &function_name, result, 1, params TSRMLS_DC);
 	zval_dtor(&function_name);
 
 	ZVAL_STRING(&function_name, "curl_getinfo", 1);
-	ALLOC_ZVAL(curl_info);
+	MAKE_STD_ZVAL(curl_info);
 	params[0] = ch;
 	call_user_function(EG(function_table), NULL, &function_name, curl_info, 1, params TSRMLS_DC);
 	zend_update_property(hessian_curl_transport_entry, self, ZEND_STRL("metadata"), curl_info TSRMLS_DC);
 	zval_dtor(&function_name);
 
 
-	ALLOC_ZVAL(curl_error);
+	MAKE_STD_ZVAL(curl_error);
 	ZVAL_STRING(&function_name, "curl_error", 1);
 	params[0] = ch;
 	call_user_function(EG(function_table), NULL, &function_name, curl_error, 1, params TSRMLS_DC);
 	zval_dtor(&function_name);
 
 
-	ALLOC_ZVAL(curl_code);
+	MAKE_STD_ZVAL(curl_code);
 	ZVAL_STRING(&function_name, "curl_getinfo", 1);
-	Z_LVAL(curl_code_param) = 2097154;
-	Z_TYPE(curl_code_param) = IS_LONG;
+	
+	MAKE_STD_ZVAL(curl_code_param);
+	Z_LVAL_P(curl_code_param) = 2097154;
+	Z_TYPE_P(curl_code_param) = IS_LONG;
 	params[0] = ch;
-	params[1] = &curl_code_param;
+	params[1] = curl_code_param;
 	call_user_function(EG(function_table), NULL, &function_name, curl_code, 2, params TSRMLS_DC);
 	zval_dtor(&function_name);
+	zval_dtor(curl_code_param);
 
 	if (i_zend_is_true(curl_error)){
 		if (Z_TYPE_P(ch) == IS_RESOURCE){
@@ -239,10 +252,10 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 			zend_error(E_ERROR, err_msg);
 
 
-			FREE_ZVAL(ch);
-			FREE_ZVAL(curl_code);
-			FREE_ZVAL(curl_error);
-			FREE_ZVAL(retval);
+			zval_dtor(ch);
+			zval_dtor(curl_code);
+			zval_dtor(curl_error);
+			zval_dtor(retval);
 			return;
 		}
 	}
@@ -265,15 +278,18 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
 			zval_dtor(&function_name);
 		}
+
+		zval_dtor(ch);
+		zval_dtor(curl_code);
+		zval_dtor(curl_error);
+		zval_dtor(retval);
+		
 		char err_msg[800];
 
 		sprintf(err_msg, "curl_exec error for url: %s", Z_STRVAL_P(url));
 		zend_error(E_ERROR, err_msg);
 
-		FREE_ZVAL(ch);
-		FREE_ZVAL(curl_code);
-		FREE_ZVAL(curl_error);
-		FREE_ZVAL(retval);
+		
 		return;
 	}
 
@@ -288,8 +304,10 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	if (i_zend_is_true(save_raw)){
 		zend_update_property(NULL, self, ZEND_STRL("rawData"), result TSRMLS_DC);
 		if (Z_TYPE_P(ch) == IS_RESOURCE){
+			ZVAL_STRING(&function_name, "curl_close", 1);
 			params[0] = ch;
 			call_user_function(EG(function_table), NULL, &function_name, NULL, 1, params TSRMLS_DC);
+			zval_dtor(&function_name);
 		}
 	}
 
@@ -323,10 +341,10 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 
 		zend_error(E_ERROR, str_message);
 
-		FREE_ZVAL(ch);
-		FREE_ZVAL(curl_code);
-		FREE_ZVAL(curl_error);
-		FREE_ZVAL(retval);
+		zval_dtor(ch);
+		zval_dtor(curl_code);
+		zval_dtor(curl_error);
+		zval_dtor(retval);
 			
 		return;
 	}
@@ -334,10 +352,14 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	zval stream;
 	object_init_ex(&stream, hessian_stream_entry);
 
-	FREE_ZVAL(ch);
-	FREE_ZVAL(curl_code);
-	FREE_ZVAL(curl_error);
-	FREE_ZVAL(retval);
+	//call __construct function
+	hessian_stream_set_stream(&stream, result);
+
+	
+	zval_dtor(ch);
+	zval_dtor(curl_code);
+	zval_dtor(curl_error);
+	zval_dtor(retval);
 		
 	RETURN_ZVAL(&stream, 1, NULL);
 }
@@ -353,16 +375,7 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 static PHP_METHOD(HessianCURLTransport, getStream)
 {
 	zval *self;
-	zval *url, *data, *options, curl_options;
-	zval function_name;
-	zval *params[2];
-	zval *ch;
-	zval curl_post, *p_curl_post;
-	zval curl_follow_location, *p_curl_follow_location;
-	zval curl_return_transfer, *p_curl_return_transfer;
-	zval curl_opt_header, *p_curl_opt_header, curl_header_content_type, *p_curl_header_content_type;
-
-
+	zval *url, *data, *options;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zzz", &url, &data, &options) == FAILURE) {
 		RETURN_FALSE;
