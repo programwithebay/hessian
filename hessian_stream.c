@@ -172,6 +172,7 @@ static PHP_METHOD(HessianStream, peek)
 	}
 	ret_buf = pemalloc(count+1, 0);
 	memcpy(ret_buf, buf+pos, count);
+	ret_buf[count] = 0;
 	RETURN_STRING(ret_buf, 0);
 }
 
