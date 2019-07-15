@@ -77,14 +77,13 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 
 	ALLOC_ZVAL(retval);
 	ALLOC_ZVAL(parser);
-	INIT_ZVAL(*parser);
 	object_init_ex(parser, hessian2_service_parser_entry);
 	array_init_size(&arr_params, 2);
-	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0]  = stream;
 	params[1] = options;
 	hessian_call_class_function_helper(parser, &function_name, 2, params, retval);
+	zval_dtor(&arr_params);
 
 
 	/*
@@ -97,10 +96,8 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	array_init_size(date_array, 2);
 
 	ALLOC_ZVAL(date_param1);
-	INIT_ZVAL(*date_param1);
-	ZVAL_STRING(date_param1, "HessianDatetimeAdapter", 1);
 	ALLOC_ZVAL(date_param2);
-	INIT_ZVAL(*date_param2);
+	ZVAL_STRING(date_param1, "HessianDatetimeAdapter", 1);
 	ZVAL_STRING(date_param2, "toObject", 1);
 	zend_hash_next_index_insert(Z_ARRVAL_P(date_array), &date_param1, sizeof(zval*), NULL);
 	zend_hash_next_index_insert(Z_ARRVAL_P(date_array), &date_param2, sizeof(zval*), NULL);
@@ -115,7 +112,7 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	ALLOC_ZVAL(callback_handler);
 	object_init_ex(callback_handler, hessian_callback_handler_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
-	zval_dtor(&arr_params);
+	zval_dtor(&function_name);
 	array_init_size(&arr_params, 1);
 	params[0] = filters;
 	hessian_call_class_function_helper(callback_handler, &function_name, 1, params, retval);
@@ -124,10 +121,11 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	
 	//$parser->setFilters(new HessianCallbackHandler($filters));
 	ZVAL_STRING(&function_name, "setFilters", 1);
-	zval_dtor(&arr_params);
 	array_init_size(&arr_params, 1);
 	params[0] = callback_handler;
 	hessian_call_class_function_helper(parser, &function_name, 1, params, retval);
+	zval_dtor(&function_name);
+	zval_dtor(retval);
 
 	FREE_ZVAL(retval);
 	
@@ -520,8 +518,6 @@ void hessian_factory_get_parser(zval  *self, zval *stream, zval *options, zval *
 	parser = hessian_object_factory_load_version2(self, "parser", stream, options);
 	//parser factory
 	ALLOC_ZVAL(obj_factory);
-	INIT_ZVAL(*obj_factory);
-	//always is HessianObjectFactory
 	object_init_ex(obj_factory, hessian_object_factory_entry);
 	zend_update_property(NULL, parser, ZEND_STRL("objectFactory"), obj_factory TSRMLS_DC);
 	RETURN_ZVAL(parser, 0, NULL);

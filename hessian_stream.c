@@ -186,7 +186,6 @@ void hessian_stream_read(zval *self, long count, zval *return_value)
 	long pos, len;
 	zval *z_bytes;
 	char *buf, *ret_buf;
-	zend_class_entry ce_exception;
 	
 
 
@@ -213,12 +212,13 @@ void hessian_stream_read(zval *self, long count, zval *return_value)
 	buf = Z_STRVAL_P(z_bytes);
 	
 	if ((pos + count) >= Z_STRLEN_P(z_bytes)){
-		zend_throw_exception(ce_exception, "read past end of stream:" , 8 TSRMLS_DC);
+		zend_error(E_ERROR, "read past end of stream:");
 		RETURN_FALSE;
 	}
 
 	ret_buf = pemalloc(count+1, 0);
 	memcpy(ret_buf, buf+pos, count);
+	ret_buf[count] = 0;
 
 	//update pos
 	pos += count;

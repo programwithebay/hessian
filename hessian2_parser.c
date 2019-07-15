@@ -313,7 +313,7 @@ void hessian2_parser_parse(zval *self, zval *code, zval *expect, zval *return_va
 			ZVAL_LONG(&z_num, num);
 			ZVAL_STRING(&function_name, hessian_rule_item.func, 1);
 			array_init_size(&param_arr, 2);
-			params[0]  = &code;
+			params[0]  = code;
 			params[1] = &z_num;
 			hessian_call_class_function_helper(self, &function_name, 2, params, value);
 
@@ -396,13 +396,19 @@ void hessian2_parser_parse(zval *self, zval *code, zval *expect, zval *return_va
 //log msg
 void hessian2_parser_log_msg(zval *self, zval *msg){
 	zval *log;
+	zend_uchar need_update = 0;
 	
 	log = zend_read_property(NULL, self, ZEND_STRL("log"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(log) != IS_ARRAY){
+		ALLOC_ZVAL(log);
 		array_init_size(log, 4);
+		need_update = 1;
 	}
-	zend_hash_next_index_insert(Z_ARRVAL_P(log), &msg, sizeof(zval**), NULL);
-	zend_update_property(NULL, self, ZEND_STRL("log"), log TSRMLS_DC);
+	zend_hash_next_index_insert(Z_ARRVAL_P(log), &msg, sizeof(zval*), NULL);
+	zval_addref_p(msg);
+	if (need_update){
+		zend_update_property(NULL, self, ZEND_STRL("log"), log TSRMLS_DC);
+	}
 
 }
 
@@ -553,7 +559,7 @@ static PHP_METHOD(Hessian2Parser, readNum)
 	zval *stream;
 	zval function_name;
 	zval *params[1];
-	zval *ret_val;
+	zval ret_val;
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &count)) {
 		return;
@@ -565,18 +571,15 @@ static PHP_METHOD(Hessian2Parser, readNum)
 	}
 
 	//return $this->stream->read($count);
-	stream = zend_read_property(NULL, self, ZEND_STRL("stream"), 1 TSRMLS_DC);
-	ZVAL_STRING(&function_name, "read", 1);
-	params[0] = count;
+	hessian2_parser_read(self, Z_LVAL_P(count), &ret_val);
 
-	call_user_function(NULL, &stream, &function_name, ret_val, 1, params TSRMLS_DC);
-	if (Z_TYPE_P(ret_val) != IS_STRING){
+	if (Z_TYPE(ret_val) != IS_STRING){
 		RETURN_FALSE;
 	}
-	if (!Z_STRVAL_P(ret_val)){
+	if (!Z_STRVAL(ret_val)){
 		RETURN_FALSE;
 	}
-	RETURN_LONG(Z_STRVAL_P(ret_val)[0]);
+	RETURN_LONG(Z_STRVAL(ret_val)[0]);
 }
 
 
@@ -671,7 +674,7 @@ void hessian2_parser_binary0(zval *self, ulong code, ulong num, zval *return_val
 {
 	ulong len;
 
-	len = num = 32;
+	len = num - 32;
 	hessian2_parser_read(self, len, return_value);
 }
 
@@ -700,14 +703,15 @@ static PHP_METHOD(Hessian2Parser, binary0)
 void hessian2_parser_binary1(zval *self, ulong  code, ulong num, zval *return_value)
 {
 	ulong len;
-	zval *read_str;
+	zval read_str;
 
 	/*
 		 $len = (($num - 0x34) << 8) + ord($this->read());
         	return $this->read($len);
         */
-    hessian2_parser_read(self, 1, read_str);
-	len = (num -52)<< 8 + Z_STRVAL_P(read_str)[0];
+    hessian2_parser_read(self, 1, &read_str);
+	len = (num - 0x34)<< 8;
+	len += Z_STRVAL(read_str)[0];
 	hessian2_parser_read(self, len, return_value);
 }
 

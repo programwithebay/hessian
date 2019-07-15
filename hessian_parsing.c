@@ -109,7 +109,6 @@ static PHP_METHOD(HessianRef, getIndex)
 	}
 
 	object_init_ex(return_value, hessian_ref_entry);
-	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = list;
 	call_user_function(NULL, &return_value, &function_name, NULL, 1, params TSRMLS_CC);
@@ -132,12 +131,11 @@ static PHP_METHOD(HessianRef, __construct)
 	if (Z_TYPE_P(list) == IS_ARRAY){
 		zval *index;
 		ALLOC_ZVAL(index);
-		INIT_ZVAL(*index);
 		cnt = zend_hash_num_elements(Z_ARRVAL_P(list));
 		ZVAL_LONG(index, cnt - 1);
-		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), index TSRMLS_DC);
+		zend_update_property(NULL, self, ZEND_STRL("index"), index TSRMLS_DC);
 	}else{
-		zend_update_property(hessian_ref_entry, self, ZEND_STRL("index"), list TSRMLS_DC);
+		zend_update_property(NULL, self, ZEND_STRL("index"), list TSRMLS_DC);
 	}
 }
 

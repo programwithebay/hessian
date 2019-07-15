@@ -63,9 +63,10 @@ zend_class_entry *hessian_reference_map_entry;
 static PHP_METHOD(HessianReferenceMap, incReference)
 {
 	zval *obj, *self;
-	zval *hessian_ref, *object_list, object_count, *ref_list;
+	zval *hessian_ref, *object_list, *object_count, *ref_list;
 	zval function_name;
-	zval *params[2];
+	zval *params[1];
+	zval ret;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &obj) == FAILURE) {
 		RETURN_FALSE;
@@ -80,32 +81,36 @@ static PHP_METHOD(HessianReferenceMap, incReference)
 
 	ALLOC_ZVAL(hessian_ref);
 	object_init_ex(hessian_ref, hessian_ref_entry);
-	object_list = zend_read_property(hessian_reference_map_entry, self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	ALLOC_ZVAL(object_count);
+	object_list = zend_read_property(NULL, self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(object_list) == IS_ARRAY){
-		ZVAL_LONG(&object_count, zend_hash_num_elements(Z_ARRVAL_P(object_list)));
+		ZVAL_LONG(object_count, zend_hash_num_elements(Z_ARRVAL_P(object_list)));
 	}else{
-		ZVAL_LONG(&object_count, 0);
+		ZVAL_LONG(object_count, 0);
 	}
-	INIT_ZVAL(function_name);
-	ZVAL_STRING(&function_name, "__construct", 1);
-	params[0] = &object_count;
-	call_user_function(NULL, &hessian_ref, &function_name, NULL, 1, params TSRMLS_CC);
 
+	ZVAL_STRING(&function_name, "__construct", 1);
+	params[0] = object_count;
+	hessian_call_class_function_helper(hessian_ref, &function_name, 1, params, &ret);
+	zval_dtor(&function_name);
 	
-	ref_list = zend_read_property(hessian_reference_map_entry, self, ZEND_STRL("reflist"), 1 TSRMLS_DC);
+	ref_list = zend_read_property(NULL, self, ZEND_STRL("reflist"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(ref_list) != IS_ARRAY){
 		ALLOC_ZVAL(ref_list);
 		array_init_size(ref_list, 2);
 	}
-	zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), hessian_ref, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(ref_list), &hessian_ref, sizeof(zval*), NULL);
+	zend_update_property(NULL, self, ZEND_STRL("reflist"), ref_list TSRMLS_DC);
+
 
 	if (Z_TYPE_P(obj) != IS_NULL){
 		if (Z_TYPE_P(object_list) != IS_ARRAY){
 			ALLOC_ZVAL(object_list);
 			array_init_size(object_list, 1);
 		}
-		zend_hash_next_index_insert(Z_ARRVAL_P(object_list), obj, sizeof(zval*), NULL);
-		zend_update_property(hessian_ref_entry, self, ZEND_STRL("objectlist"), object_list TSRMLS_DC);
+		zend_hash_next_index_insert(Z_ARRVAL_P(object_list), &obj, sizeof(zval*), NULL);
+		//zval_add_ref(&obj);
+		zend_update_property(NULL, self, ZEND_STRL("objectlist"), object_list TSRMLS_DC);
 	}
 }
 
