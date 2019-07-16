@@ -710,7 +710,7 @@ void hessian2_parser_binary1(zval *self, ulong  code, ulong num, zval *return_va
         	return $this->read($len);
         */
     hessian2_parser_read(self, 1, &read_str);
-	len = (num - 0x34)<< 8;
+	len = (num - 0x34) << 8;
 	len += Z_STRVAL(read_str)[0];
 	hessian2_parser_read(self, len, return_value);
 }
@@ -735,35 +735,53 @@ static PHP_METHOD(Hessian2Parser, binary1)
 	hessian2_parser_binary1(self, code, num, return_value);
 }
 
+/*
+	Hessian2Parser::binaryLongData
+*/
+void hessian2_parser_binary_long_data(zval *self, zval *return_value)
+{
+	ulong len;
+	zval function_name;
+	zval *params[2];
+	zval param1;
+	zval read_str;
+	zval retval;
+	zval **find_res;
+
+	
+	/*
+		 $tempLen = unpack('n', $this->read(2));
+       	 $len     = $tempLen[1];
+       	 return $this->read($len);
+        */
+
+	hessian2_parser_read(self, 2, &read_str);
+    ZVAL_STRING(&function_name, "unpack", 1);
+    ZVAL_STRING(&param1, "n", 1);
+	params[0] = &param1;
+	params[1] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, &retval, 2,  params TSRMLS_DC);
+	zval_dtor(&function_name);
+	zval_dtor(&param1);
+	zval_dtor(&read_str);
+	zend_hash_index_find(Z_ARRVAL(retval), 1, (void **)&find_res);
+	
+	len = Z_LVAL_PP(find_res);
+	hessian2_parser_read(self, len, return_value);
+}
+
+
 
 /*
 	Hessian2Parser::binaryLongData
 */
 static PHP_METHOD(Hessian2Parser, binaryLongData)
 {
-	ulong code, num, len;
 	zval *self;
-	zval function_name;
-	zval *params[2];
-	zval param1;
-	zval *read_str;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
 	self = getThis();
-
-
-	/*
-		 $tempLen = unpack('n', $this->read(2));
-       	 $len     = $tempLen[1];
-       	 return $this->read($len);
-        */
-    ZVAL_STRING(&function_name, "unpack", 1);
-    ZVAL_STRING(&param1, "n", 1);
-	hessian2_parser_read(self, 2, read_str);
-	len = Z_STRVAL_P(read_str)[1];
-	hessian2_parser_read(self, len, return_value);
+	
+	hessian2_parser_binary_long_data(self, return_value);
 }
 
 
@@ -774,10 +792,10 @@ void hessian2_parser_binary_long(zval *self, ulong code, ulong num, zval *return
 {
 	ulong len;
 	zend_bool final=0;
-	zval *z_code;
+	zval z_code;
 	zval function_name;
 	zval *params[2];
-	zval *res;
+	zval res;
 	char *data;
 	zval param1;
 
@@ -792,7 +810,7 @@ void hessian2_parser_binary_long(zval *self, ulong code, ulong num, zval *return
         */
 
 	do{
-		final = num != 0x41;
+		final = (num != 0x41);
 		/*
 		 if ($num == 0x41 || $num == 0x42)
                 $data .= $this->binaryLongData();
@@ -800,22 +818,21 @@ void hessian2_parser_binary_long(zval *self, ulong code, ulong num, zval *return
                 $data .= $this->parse($code, 'binary');
                 */
        if ((num == 0x41) || (num == 0x42)){
-	   		ZVAL_STRING(&function_name, "binaryLongData", 1);
-			call_user_function(NULL, &self, &function_name, res, 0, params TSRMLS_DC);
+	   		hessian2_parser_binary_long_data(self, &res);
 			if (!data){
-				data = Z_STRVAL_P(res);
+				data = Z_STRVAL(res);
 			}else{
-				data = strcat(data, Z_STRVAL_P(res));
+				data = strcat(data, Z_STRVAL(res));
 			}
        }else{
-       		ZVAL_STRING(&function_name, "parse", 1);
-			params[0] = z_code;
-			params[1] = &param1;
-			call_user_function(NULL, &self, &function_name, res, 0, params TSRMLS_DC);
+       		zval expect;
+			ZVAL_STRING(&expect, "binary", 1);
+       		hessian2_parser_parse(self, &z_code, &expect, &res);
+			zval_dtor(&expect);
 			if (!data){
-				data = Z_STRVAL_P(res);
+				data = Z_STRVAL(res);
 			}else{
-				data = strcat(data, Z_STRVAL_P(res));
+				data = strcat(data, Z_STRVAL(res));
 			}
        }
 	}while(!final);
@@ -830,58 +847,14 @@ void hessian2_parser_binary_long(zval *self, ulong code, ulong num, zval *return
 */
 static PHP_METHOD(Hessian2Parser, binaryLong)
 {
-	ulong num, len;
-	zend_bool final=0;
+	ulong num;
 	zval *self, *z_code;
-	zval function_name;
-	zval *params[2];
-	zval *res;
-	char *data;
-	zval param1;
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zl", &z_code, &num)) {
 		return;
 	}
 	
 	self = getThis();
-	ZVAL_STRING(&param1, "binary", 1);
-
-
-	/*
-		 $tempLen = unpack('n', $this->read(2));
-       	 $len     = $tempLen[1];
-       	 return $this->read($len);
-        */
-
-	do{
-		final = num != 0x41;
-		/*
-		 if ($num == 0x41 || $num == 0x42)
-                $data .= $this->binaryLongData();
-            else
-                $data .= $this->parse($code, 'binary');
-                */
-       if ((num == 0x41) || (num == 0x42)){
-	   		ZVAL_STRING(&function_name, "binaryLongData", 1);
-			call_user_function(NULL, &self, &function_name, res, 0, params TSRMLS_DC);
-			if (!data){
-				data = Z_STRVAL_P(res);
-			}else{
-				data = strcat(data, Z_STRVAL_P(res));
-			}
-       }else{
-       		ZVAL_STRING(&function_name, "parse", 1);
-			params[0] = z_code;
-			params[1] = &param1;
-			call_user_function(NULL, &self, &function_name, res, 0, params TSRMLS_DC);
-			if (!data){
-				data = Z_STRVAL_P(res);
-			}else{
-				data = strcat(data, Z_STRVAL_P(res));
-			}
-       }
-	}while(!final);
-
-	RETURN_STRING(data, 0);
+	hessian2_parser_binary_long(self, Z_LVAL_P(z_code), num, return_value);
 }
 
 
@@ -891,10 +864,11 @@ static PHP_METHOD(Hessian2Parser, binaryLong)
 static PHP_METHOD(Hessian2Parser, compactInt1)
 {
 	ulong code, num, len;
+	zval *z_code;
 	zval *self;
 
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &z_code)) {
 		return;
 	}
 	self = getThis();
@@ -906,10 +880,16 @@ static PHP_METHOD(Hessian2Parser, compactInt1)
         	return ord($code) - 0x90;
         */
 
-		if (code == 0x90){
-			RETURN_LONG(0);
-		}
-		RETURN_LONG(code - 0x90);
+	if((Z_TYPE_P(z_code) == IS_LONG) && (0x90 == Z_LVAL_P(z_code))){
+		RETURN_LONG(0);
+	}
+
+	if (Z_TYPE_P(z_code) == IS_STRING && Z_STRLEN_P(z_code) > 0){
+		char *buf;
+		buf = Z_STRVAL_P(z_code);
+		RETURN_LONG((zend_uchar)buf[0] - 0x90);
+	}
+	zend_error(E_ERROR, "Hessian2Parser:compactInt1 unsuport code");
 }
 
 
@@ -919,11 +899,17 @@ static PHP_METHOD(Hessian2Parser, compactInt1)
 */
 static PHP_METHOD(Hessian2Parser, compactInt2)
 {
-	ulong code, num, len;
-	zval *self, *read_str;
+	zval *code;
+	long res;
+	zval *self, read_str;
+	char *buf, *buf1;
 
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
+		return;
+	}
+	if (Z_TYPE_P(code) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "code must be a string");
 		return;
 	}
 	self = getThis();
@@ -934,8 +920,13 @@ static PHP_METHOD(Hessian2Parser, compactInt2)
         	return ((ord($code) - 0xc8) << 8) + $b0;
         */
 
-	hessian2_parser_read(self, 1, read_str);
-	RETURN_LONG((code-0xc8)<<8 + Z_STRVAL_P(read_str)[0]);
+	hessian2_parser_read(self, 1, &read_str);
+	buf = Z_STRVAL(read_str);
+	buf1 = Z_STRVAL_P(code);
+	res = buf1[0] - 0xc8;
+	res = res << 8;
+	res += buf[0];
+	RETURN_LONG(res);
 }
 
 
@@ -944,11 +935,17 @@ static PHP_METHOD(Hessian2Parser, compactInt2)
 */
 static PHP_METHOD(Hessian2Parser, compactInt3)
 {
-	ulong code, num, res;
-	zval *self, *b1, *b0;
+	zval *code;
+	long res;
+	zval *self, b1, b0;
+	char *buf1, *buf0, *buf_code;
 
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
+		return;
+	}
+	if (Z_TYPE_P(code) != IS_STRING){
+		php_error_docref(NULL, E_WARNING, "code must be a string");
 		return;
 	}
 	self = getThis();
@@ -960,10 +957,17 @@ static PHP_METHOD(Hessian2Parser, compactInt3)
         	return ((ord($code) - 0xd4) << 16) + ($b1 << 8) + $b0;
         */
 
-	hessian2_parser_read(self, 1, b1);
-	hessian2_parser_read(self, 1, b0);
+	hessian2_parser_read(self, 1, &b1);
+	hessian2_parser_read(self, 1, &b0);
+
+	buf1 = Z_STRVAL(b1);
+	buf0 = Z_STRVAL(b0);
+	buf_code = Z_STRVAL_P(code);
 	
-	res = (code - 0xd4) << 16 + (Z_STRVAL_P(b1)[0] << 8) + Z_STRVAL_P(b0)[0];
+	res = buf_code[0] - 0xd4;
+	res = res << 16;
+	res += buf1[0] << 8;
+	res += buf0[0];
 
 	RETURN_LONG(res);
 }
