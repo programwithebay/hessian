@@ -121,9 +121,6 @@ zend_class_entry *hessian2_parser_entry;
 */
 void hessian2_parser_read(zval *self, ulong count, zval *return_value)
 {
-	zval *params[1];
-	zval function_name;
-	zval z_count;
 	zval *stream;
 	
 	//return $this->stream->read($count);
@@ -978,15 +975,11 @@ static PHP_METHOD(Hessian2Parser, compactInt3)
 */
 static PHP_METHOD(Hessian2Parser, parseInt)
 {
-	ulong code, num;
-	zval *self, *read_str, *data, *res;
+	zval *self, read_str, data, **res;
 	zval function_name, param1;
 	zval *params[2];
 
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
 	self = getThis();
 
 
@@ -994,21 +987,20 @@ static PHP_METHOD(Hessian2Parser, parseInt)
 		 $data = unpack('N', $this->read(4));
         	return $data[1];
         */
-
+	hessian2_parser_read(self, 4, &read_str);
+	
 	ZVAL_STRING(&function_name, "unpack", 1);
 	ZVAL_STRING(&param1, "N", 1);
-	hessian2_parser_read(self, 4, read_str);
 	params[0] = &param1;
-	params[1] = read_str;
-	call_user_function(EG(function_table), NULL, &function_name, data, 2, params TSRMLS_DC);
-	if (Z_TYPE_P(data) != IS_ARRAY){
+	params[1] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, &data, 2, params TSRMLS_DC);
+	zval_dtor(&function_name);
+	if (Z_TYPE(data) != IS_ARRAY){
 		RETURN_FALSE;
 	}
-	//@todo check is array
-	zend_hash_find(Z_ARRVAL_P(data), "1", 1, (void **)&res);
-
-	if (res){
-		RETURN_ZVAL(res, 1, NULL);
+	
+	if (SUCCESS == zend_hash_index_find(Z_ARRVAL(data), 1, (void **)&res)){
+		RETURN_LONG(Z_LVAL_PP(res));
 	}
 	RETURN_FALSE;
 }
@@ -1018,17 +1010,22 @@ static PHP_METHOD(Hessian2Parser, parseInt)
 */
 static PHP_METHOD(Hessian2Parser, bool)
 {
-	ulong code, num;
-	zval *self;
+	zval *code;
+	char *buf;
 
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
 		return;
 	}
-	self = getThis();
+	if (Z_TYPE_P(code) != IS_STRING){
+		return;
+	}
+	if (Z_STRLEN_P(code) < 1){
+		RETURN_FALSE;
+	}
+	buf = Z_STRVAL_P(code);
 
-
-	RETURN_BOOL(code == 'T');
+	RETURN_BOOL(buf[0] == 'T');
 }
 
 
@@ -1037,25 +1034,22 @@ static PHP_METHOD(Hessian2Parser, bool)
 */
 static PHP_METHOD(Hessian2Parser, date)
 {
-	ulong code, num;
-	zval *self, *read_str, *ts;
+	zval *self, read_str, ts;
 	zval function_name;
 	zval *params[1];
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
 	self = getThis();
 	/*
 		 $ts = HessianUtils::timestampFromBytes64($this->read(8));
         	return $ts;
 	*/
-	hessian2_parser_read(self, 8, read_str);
+	hessian2_parser_read(self, 8, &read_str);
 	ZVAL_STRING(&function_name, "HessianUtils::timestampFromBytes64", 1);
-	params[0] = read_str;
-	call_user_function(EG(function_table), NULL, &function_name, ts, 1, params TSRMLS_DC);
-
-	RETURN_ZVAL(ts, 1, NULL);
+	params[0] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, &ts, 1, params TSRMLS_DC);
+	zval_dtor(&function_name);
+	
+	RETURN_ZVAL(&ts, 1, NULL);
 }
 
 
@@ -1064,15 +1058,12 @@ static PHP_METHOD(Hessian2Parser, date)
 */
 static PHP_METHOD(Hessian2Parser, compactDate)
 {
-	ulong code, num, ts;
-	zval *self, *read_str, *data;
-	zval *data1, *data2, *data3, *data4;
+	ulong ts, num;
+	zval *self, read_str, data;
+	zval **data1, **data2, **data3, **data4;
 	zval function_name, param1;
 	zval *params[2];
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
 	self = getThis();
 	/*
 		 $data = unpack('C4', $this->read(4));
@@ -1083,20 +1074,30 @@ static PHP_METHOD(Hessian2Parser, compactDate)
         	$ts   = $num * 60;
         	return $ts;
 	*/
-	hessian2_parser_read(self, 4, read_str);
+	hessian2_parser_read(self, 4, &read_str);
 	ZVAL_STRING(&function_name, "unpack", 1);
 	ZVAL_STRING(&param1, "C4", 1);
 	params[0] = &param1;
-	params[1] = read_str;
-	call_user_function(EG(function_table), NULL, &function_name, data, 1, params TSRMLS_DC);
+	params[1] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, &data, 2, params TSRMLS_DC);
+	zval_dtor(&function_name);
+	zval_dtor(&param1);
 
+	if (Z_TYPE(data) != IS_ARRAY){
+		RETURN_FALSE;
+	}
+	zend_hash_index_find(Z_ARRVAL(data), 1, (void **)&data1);
+	zend_hash_index_find(Z_ARRVAL(data), 2, (void **)&data2);
+	zend_hash_index_find(Z_ARRVAL(data), 3, (void **)&data3);
+	zend_hash_index_find(Z_ARRVAL(data), 4, (void **)&data4);
 
-	zend_hash_find(Z_ARRVAL_P(data), "1", 1, (void **)&data1);
-	zend_hash_find(Z_ARRVAL_P(data), "2", 1, (void **)&data2);
-	zend_hash_find(Z_ARRVAL_P(data), "3", 1, (void **)&data3);
-	zend_hash_find(Z_ARRVAL_P(data), "4", 1, (void **)&data4);
-
-	ts = Z_STRVAL_P(data1)[0] << 24 + Z_STRVAL_P(data1)[1] << 16 + Z_STRVAL_P(data1)[2] << 8 + Z_STRVAL_P(data1)[3]; 
+	num = Z_LVAL_PP(data1);
+	ts = num << 24;
+	num = Z_LVAL_PP(data2);
+	ts += num << 16;
+	num = Z_LVAL_PP(data3);
+	ts += num << 8;
+	ts += (Z_LVAL_PP(data4)); 
 	ts *= 60;
 
 	RETURN_LONG(ts);
@@ -1109,7 +1110,8 @@ static PHP_METHOD(Hessian2Parser, compactDate)
 static PHP_METHOD(Hessian2Parser, double1)
 {
 	ulong code, num;
-	zval *self, *read_str ; 
+	zval *self, read_str;
+	char *buf;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
 		return;
@@ -1129,10 +1131,10 @@ static PHP_METHOD(Hessian2Parser, double1)
 	if (num == 0x5C){
 		RETURN_DOUBLE(1.0);
 	}
-	hessian2_parser_read(self, 1, read_str);
+	hessian2_parser_read(self, 1, &read_str);
  
-
-	RETURN_DOUBLE(Z_STRVAL_P(read_str)[0]);
+	buf = Z_STRVAL(read_str);
+	RETURN_DOUBLE(buf[0]);
 }
 
 
@@ -1143,7 +1145,7 @@ static PHP_METHOD(Hessian2Parser, double1)
 static PHP_METHOD(Hessian2Parser, double2)
 {
 	ulong code, num;
-	zval *self, *read_str, *b, *data;
+	zval *self, read_str, b, **data;
 	zval function_name, param1;
 	zval *params[2];
 
@@ -1156,21 +1158,22 @@ static PHP_METHOD(Hessian2Parser, double2)
         $b     = unpack('s', strrev($bytes));
         return (float)$b[1];
 	*/ 
-	hessian2_parser_read(self, 2, read_str);
+	hessian2_parser_read(self, 2, &read_str);
  	ZVAL_STRING(&function_name, "strrev", 1); 
-	params[0] = read_str; 
-	call_user_function(EG(function_table), NULL, &function_name, read_str, 1, params TSRMLS_DC);
-
+	params[0] = &read_str; 
+	call_user_function(EG(function_table), NULL, &function_name, &read_str, 1, params TSRMLS_DC);
+	zval_dtor(&function_name);
+	
 	ZVAL_STRING(&function_name, "unpack", 1); 
 	ZVAL_STRING(&param1, "s", 1);
 	params[0] = &param1;
-	params[1] = read_str;
-	call_user_function(EG(function_table), NULL, &function_name, b, 1, params TSRMLS_DC);
+	params[1] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, &b, 2, params TSRMLS_DC);
+	zval_dtor(&function_name);
 
-
-	zend_hash_find(Z_ARRVAL_P(b), "1", 1, (void **)&data);
+	zend_hash_index_find(Z_ARRVAL(b),  1, (void **)&data);
 	
-	RETURN_DOUBLE(Z_STRVAL_P(data)[0]);
+	RETURN_DOUBLE(Z_LVAL_PP(data));
 }
 
 
@@ -1180,7 +1183,8 @@ static PHP_METHOD(Hessian2Parser, double2)
 static PHP_METHOD(Hessian2Parser, double4)
 {
 	ulong code, num;
-	zval *self, *read_str, *b;
+	zval *self, read_str, *b;
+	char *buf;
 
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
@@ -1195,8 +1199,12 @@ static PHP_METHOD(Hessian2Parser, double4)
             ord($b[3]);
         return 0.001 * $num;
 	*/ 
-	hessian2_parser_read(self, 4, read_str);
-	num = Z_STRVAL_P(read_str)[0] << 24 + Z_STRVAL_P(read_str)[1] << 16 + Z_STRVAL_P(read_str)[2] << 8 + Z_STRVAL_P(read_str)[3];
+	hessian2_parser_read(self, 4, &read_str);
+	buf = Z_STRVAL(read_str);
+	num = buf[0] << 24;
+	num += buf[1] << 16;
+	num += buf[2] << 8;
+	num += buf[3];
 
 	RETURN_DOUBLE(0.001 * num);
 }
@@ -1207,8 +1215,8 @@ static PHP_METHOD(Hessian2Parser, double4)
 static PHP_METHOD(Hessian2Parser, double64)
 {
 	ulong code, num;
-	zval *self, *read_str;
-	zval *little_endian, *z_double, *res;;
+	zval *self, read_str;
+	zval *little_endian, z_double, **res;;
 	zval function_name, param1;
 	zval *params[2];	
 
@@ -1224,25 +1232,28 @@ static PHP_METHOD(Hessian2Parser, double64)
         $double = unpack("dflt", $bytes);
         return $double['flt'];
 	*/ 
-	hessian2_parser_read(self, 8, read_str);
-	little_endian = zend_read_property(hessian_utils_entry, NULL, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
+	hessian2_parser_read(self, 8, &read_str);
+	little_endian = zend_read_static_property(hessian_utils_entry, ZEND_STRL("littleEndian"), 1 TSRMLS_DC);
 	if (i_zend_is_true(little_endian)){
-		
-
 		ZVAL_STRING(&function_name, "strrev", 1);
-		params[0] = read_str;
+		params[0] = &read_str;
 
-		call_user_function(EG(function_table), NULL, &function_name, read_str, 1, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &read_str, 1, params TSRMLS_DC);
+		zval_dtor(&function_name);
 	}
 
 	ZVAL_STRING(&function_name, "unpack", 1);
 	ZVAL_STRING(&param1, "dflt", 1);
 	params[0] = &param1;
-	params[1] = read_str;
-	call_user_function(EG(function_table), NULL, &function_name, z_double, 2, params TSRMLS_DC);
+	params[1] = &read_str;
+	call_user_function(EG(function_table), NULL, &function_name, &z_double, 2, params TSRMLS_DC);
+	zval_dtor(&function_name);
+	zval_dtor(&param1);
 
-	zend_hash_find(Z_ARRVAL_P(read_str), "flt", 3, (void **)&res);
-	RETURN_ZVAL(res, 0, NULL);
+	if (SUCCESS == zend_hash_find(Z_ARRVAL(z_double), "flt", 4, (void **)&res)){
+		RETURN_ZVAL(*res, 0, NULL);
+	}
+	RETURN_FALSE;
 }
 
 
