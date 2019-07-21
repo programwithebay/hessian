@@ -793,7 +793,7 @@ void hessian2_parser_binary_long(zval *self, ulong code, ulong num, zval *return
 	zval function_name;
 	zval *params[2];
 	zval res;
-	char *data;
+	zend_uchar *data;
 	zval param1;
 
 	
@@ -882,9 +882,9 @@ static PHP_METHOD(Hessian2Parser, compactInt1)
 	}
 
 	if (Z_TYPE_P(z_code) == IS_STRING && Z_STRLEN_P(z_code) > 0){
-		char *buf;
+		zend_uchar *buf;
 		buf = Z_STRVAL_P(z_code);
-		RETURN_LONG((zend_uchar)buf[0] - 0x90);
+		RETURN_LONG(buf[0] - 0x90);
 	}
 	zend_error(E_ERROR, "Hessian2Parser:compactInt1 unsuport code");
 }
@@ -899,7 +899,7 @@ static PHP_METHOD(Hessian2Parser, compactInt2)
 	zval *code;
 	long res;
 	zval *self, read_str;
-	char *buf, *buf1;
+	zend_uchar *buf, *buf1;
 
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
@@ -935,7 +935,7 @@ static PHP_METHOD(Hessian2Parser, compactInt3)
 	zval *code;
 	long res;
 	zval *self, b1, b0;
-	char *buf1, *buf0, *buf_code;
+	zend_uchar *buf1, *buf0, *buf_code;
 
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
@@ -1011,7 +1011,7 @@ static PHP_METHOD(Hessian2Parser, parseInt)
 static PHP_METHOD(Hessian2Parser, bool)
 {
 	zval *code;
-	char *buf;
+	zend_uchar *buf;
 
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
@@ -1111,7 +1111,7 @@ static PHP_METHOD(Hessian2Parser, double1)
 {
 	ulong code, num;
 	zval *self, read_str;
-	char *buf;
+	zend_uchar *buf;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
 		return;
@@ -1184,7 +1184,7 @@ static PHP_METHOD(Hessian2Parser, double4)
 {
 	ulong code, num;
 	zval *self, read_str, *b;
-	char *buf;
+	zend_uchar *buf;
 
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
@@ -1287,10 +1287,11 @@ static PHP_METHOD(Hessian2Parser, long1)
 */
 static PHP_METHOD(Hessian2Parser, long2)
 {
-	ulong code, num, res;
-	zval *self, *read_str;
+	ulong num, res;
+	zval *self, read_str;
+	zend_uchar *buf;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &num)) {
 		return;
 	}
 	self = getThis();
@@ -1299,8 +1300,9 @@ static PHP_METHOD(Hessian2Parser, long2)
 	*/ 
 
 	
-	hessian2_parser_read(self, 1, read_str);
-	res = ((num - 0xf8) << 8) + Z_STRVAL_P(read_str)[0];
+	hessian2_parser_read(self, 1, &read_str);
+	buf = Z_STRVAL(read_str);
+	res = ((num - 0xf8) << 8) + buf[0];
 
 	RETURN_LONG(res);
 }
@@ -1310,12 +1312,19 @@ static PHP_METHOD(Hessian2Parser, long2)
 */
 static PHP_METHOD(Hessian2Parser, long3)
 {
-	ulong code, num, res;
-	zval *self, *read1, *read2;
+	ulong res;
+	zval *code;
+	zval *self, read1, read2;
+	zend_uchar *buf, *buf1, *buf2;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &code)) {
 		return;
 	}
+	if (Z_TYPE_P(code) != IS_STRING || Z_STRLEN_P(code ) < 1){
+		php_error_docref(NULL, E_WARNING, "code must be an string and can't be empty");
+		return;
+	}
+	buf = Z_STRVAL_P(code);
 	self = getThis();
 	/*
 		 return ((ord($code) - 0x3c) << 16)
@@ -1324,9 +1333,13 @@ static PHP_METHOD(Hessian2Parser, long3)
 	*/ 
 
 	
-	hessian2_parser_read(self, 1, read1);
-	hessian2_parser_read(self, 1, read2);
-	res = ((code - 0x3c) << 16) + Z_STRVAL_P(read1)[0] << 8 + Z_STRVAL_P(read1)[2];
+	hessian2_parser_read(self, 1, &read1);
+	hessian2_parser_read(self, 1, &read2);
+	buf1 = Z_STRVAL(read1);
+	buf2 = Z_STRVAL(read2);
+	res = (buf[0] - 0x3c) << 16;
+	res += buf1[0] << 8;
+	res += buf2[0];
 
 	RETURN_LONG(res);
 }
@@ -1337,12 +1350,10 @@ static PHP_METHOD(Hessian2Parser, long3)
 */
 static PHP_METHOD(Hessian2Parser, long32)
 {
-	ulong code, num, res;
-	zval *self, *read1, *read2, *read3, *read4;
-
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
+	ulong res;
+	zval *self, read1, read2, read3, read4;
+	zend_uchar *buf1, *buf2, *buf3, *buf4;
+	
 	self = getThis();
 	/*
 		  return ($this->readNum() << 24) +
@@ -1352,11 +1363,20 @@ static PHP_METHOD(Hessian2Parser, long32)
 	*/ 
 
 	
-	hessian2_parser_read(self, 1, read1);
-	hessian2_parser_read(self, 1, read2);
-	hessian2_parser_read(self, 1, read3);
-	hessian2_parser_read(self, 1, read4);
-	res = Z_STRVAL_P(read1)[0] << 24 + Z_STRVAL_P(read2)[0] << 16 + Z_STRVAL_P(read3)[0] << 8 + Z_STRVAL_P(read4)[0];
+	hessian2_parser_read(self, 1, &read1);
+	hessian2_parser_read(self, 1, &read2);
+	hessian2_parser_read(self, 1, &read3);
+	hessian2_parser_read(self, 1, &read4);
+
+	buf1 = Z_STRVAL(read1);
+	buf2 = Z_STRVAL(read2);
+	buf3 = Z_STRVAL(read3);
+	buf4 = Z_STRVAL(read4);
+	
+	res = buf1[0] << 24;
+	res += buf2[0] << 16;
+	res += buf3[0] << 8;
+	res += buf4[0];
 
 	RETURN_LONG(res);
 }
@@ -1367,12 +1387,11 @@ static PHP_METHOD(Hessian2Parser, long32)
 */
 static PHP_METHOD(Hessian2Parser, long64)
 {
-	ulong code, num, res;
-	zval *self, *read1, *read2, *read3, *read4, *read5, *read6, *read7, *read8;
+	zend_ulong res;
+	zval *self, read1, read2, read3, read4, read5, read6, read7, read8;
+	zend_uchar *buf1, *buf2, *buf3, *buf4, *buf5, *buf6, *buf7, *buf8;
+	
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
 	self = getThis();
 	/*
 		  return ($this->readNum() << 24) +
@@ -1382,17 +1401,33 @@ static PHP_METHOD(Hessian2Parser, long64)
 	*/ 
 
 	
-	hessian2_parser_read(self, 1, read1);
-	hessian2_parser_read(self, 1, read2);
-	hessian2_parser_read(self, 1, read3);
-	hessian2_parser_read(self, 1, read4);
-	hessian2_parser_read(self, 1, read5);
-	hessian2_parser_read(self, 1, read6);
-	hessian2_parser_read(self, 1, read7);
-	hessian2_parser_read(self, 1, read8);
+	hessian2_parser_read(self, 1, &read1);
+	hessian2_parser_read(self, 1, &read2);
+	hessian2_parser_read(self, 1, &read3);
+	hessian2_parser_read(self, 1, &read4);
+	hessian2_parser_read(self, 1, &read5);
+	hessian2_parser_read(self, 1, &read6);
+	hessian2_parser_read(self, 1, &read7);
+	hessian2_parser_read(self, 1, &read8);
+
+	buf1 = Z_STRVAL(read1);
+	buf2 = Z_STRVAL(read2);
+	buf3 = Z_STRVAL(read3);
+	buf4 = Z_STRVAL(read4);
+	buf5 = Z_STRVAL(read5);
+	buf6 = Z_STRVAL(read6);
+	buf7 = Z_STRVAL(read7);
+	buf8 = Z_STRVAL(read8);
+
 	
-	res = Z_STRVAL_P(read1)[0] << 56 + Z_STRVAL_P(read2)[0] << 48 + Z_STRVAL_P(read3)[0] << 40 + Z_STRVAL_P(read4)[0] << 32
-		+ Z_STRVAL_P(read5)[0] << 24 + Z_STRVAL_P(read6)[0] << 16 + Z_STRVAL_P(read7)[0] << 8 + Z_STRVAL_P(read8)[0];
+	res = (long)buf1[0] << 56;
+	res += (long)buf2[0] << 48;
+	res += (long)buf3[0] << 40;
+	res += (long)buf4[0] << 32;
+	res += (long)buf5[0] << 24;
+	res += (long)buf6[0] << 16;
+	res += (long)buf7[0] << 8;
+	res += (long)buf8[0];
 
 	RETURN_LONG(res);
 }
@@ -1402,13 +1437,6 @@ static PHP_METHOD(Hessian2Parser, long64)
 */
 static PHP_METHOD(Hessian2Parser, parseNull)
 {
-	ulong code, num;
-
-
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &code, &num)) {
-		return;
-	}
-	
 	RETURN_NULL();
 }
 
@@ -2709,6 +2737,7 @@ const zend_function_entry hessian2_parser_functions[] = {
 	PHP_ME(Hessian2Parser, long2, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, long3, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, long32, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
+	PHP_ME(Hessian2Parser, long64, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, parseNull, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, reserved, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
 	PHP_ME(Hessian2Parser, string0, arginfo_hessian2_compact_int1, ZEND_ACC_PUBLIC)
