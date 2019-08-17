@@ -218,7 +218,14 @@ static PHP_METHOD(HessianReferenceMap, getReference)
 	/*
 	return array_search($object, $this->objectlist, true);
 	*/
-	object_list = zend_read_property(hessian_reference_map_entry, self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	object_list = zend_read_property(NULL, self, ZEND_STRL("objectlist"), 1 TSRMLS_DC);
+	if (!object_list){
+		RETURN_FALSE;
+	}
+	if (Z_TYPE_P(object_list) != IS_ARRAY){
+		RETURN_FALSE;
+	}
+	
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(object_list), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(object_list), (void **)&entry, &pos) == SUCCESS) {
 		if (SUCCESS == compare_function(&result, *entry, object TSRMLS_CC)){
@@ -241,8 +248,8 @@ static PHP_METHOD(HessianReferenceMap, getTypeIndex)
 {
 	zval *self, *type, *type_list;
 	HashPosition pos;
-	zval *entry;
-	zval *result;
+	zval **entry;
+	zval result;
 
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &type) == FAILURE) {
@@ -254,10 +261,20 @@ static PHP_METHOD(HessianReferenceMap, getTypeIndex)
 		return array_search($type, $this->typelist, true);
 	*/
 	type_list = zend_read_property(hessian_reference_map_entry, self, ZEND_STRL("typelist"), 1 TSRMLS_DC);
+	if (!type_list){
+		RETURN_FALSE;
+	}
+	if (Z_TYPE_P(type_list) !=  IS_ARRAY){
+		RETURN_FALSE;
+	}
+
+	
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(type_list), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(type_list), (void **)&entry, &pos) == SUCCESS) {
-		if (SUCCESS == compare_function(result, entry, type TSRMLS_CC)){
-			RETURN_TRUE;
+		if (SUCCESS == compare_function(&result, *entry, type TSRMLS_CC)){
+			if (0 == Z_LVAL(result)){
+				RETURN_TRUE;
+			}
 		}
 		zend_hash_move_forward_ex(Z_ARRVAL_P(type_list), &pos);
 	}
