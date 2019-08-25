@@ -210,7 +210,7 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 			$stream .= pack('C', $len);
 			return $stream . $this->writeStringData($value);
 		*/
-		zval *res[3];
+		zval res[3];
 		
 		
 		ZVAL_STRING(param1, "C", 1);
@@ -218,25 +218,24 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 		params[0] = param1;
 		params[1] = &param2;
 
-		call_user_function(EG(function_table), NULL, &function_name, res[0], 2, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &res[0], 2, params TSRMLS_DC);
 
 		params[1] = &z_len;
-		call_user_function(EG(function_table), NULL, &function_name, res[1], 2, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &res[1], 2, params TSRMLS_DC);
 
-		hessian2_writer_write_string_data(self, value, res[2]);
+		hessian2_writer_write_string_data(self, value, &res[2]);
 
-		buf_len = Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]) + Z_STRLEN_P(res[2]);
-		buf = pemalloc(buf_len + 1, 0);
+		buf_len = Z_STRLEN(res[0]) + Z_STRLEN(res[1]) + Z_STRLEN(res[2]);
+		buf = pemalloc(buf_len, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeString alloc memory error");
 			return;
 		}
 		p = buf;
 		for(i=0; i<3; i++){
-			memcpy(p, Z_STRVAL_P(res[i]), Z_STRLEN_P(res[i]));
-			p +=  Z_STRLEN_P(res[i]);
+			memcpy(p, Z_STRVAL(res[i]), Z_STRLEN(res[i]));
+			p +=  Z_STRLEN(res[i]);
 		}
-		buf[buf_len + 1] = 0;
 
 
 
@@ -254,17 +253,17 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 			return $stream;
 		*/
 
-		zval *res[2];
+		zval res[2];
 
 		ZVAL_STRING(param1, "n", 1);
 		params[0] = param1;
 		params[1] = &z_len;
-		call_user_function(EG(function_table), NULL, &function_name, res[0], 2, params TSRMLS_DC);
+		call_user_function(EG(function_table), NULL, &function_name, &res[0], 2, params TSRMLS_DC);
 
-		hessian2_writer_write_string_data(self, value, res[1]);
+		hessian2_writer_write_string_data(self, value, &res[1]);
 
-		buf_len = Z_STRLEN_P(res[0]) + Z_STRLEN_P(res[1]);
-		buf = pemalloc(buf_len + 1, 0);
+		buf_len = Z_STRLEN(res[0]) + Z_STRLEN(res[1]);
+		buf = pemalloc(buf_len, 0);
 		if (!buf){
 			php_error_docref(NULL, E_WARNING, "Hessian2Writer::writeString alloc memory error");
 			return;
@@ -272,10 +271,9 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 		buf[0] = 'S';
 		p = buf+1;
 		for(i=0; i<2; i++){
-			memcpy(p, Z_STRVAL_P(res[i]), Z_STRLEN_P(res[i]));
-			p +=  Z_STRLEN_P(res[i]);
+			memcpy(p, Z_STRVAL(res[i]), Z_STRLEN(res[i]));
+			p +=  Z_STRLEN(res[i]);
 		}
-		buf[buf_len + 1]  = 0;
 
 
 		//free
@@ -1668,7 +1666,7 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 			//params[1] = value;
 			//Z_ADDREF_P(value);
 			ZVAL_STRING(&function_name, "get_class_vars", 1);
-			call_user_function(EG(function_table), NULL, &function_name, &target, 2, params TSRMLS_CC);
+			call_user_function(EG(function_table), NULL, &function_name, &target, 1, params TSRMLS_CC);
 			zval_dtor(&function_name);
 		}
 

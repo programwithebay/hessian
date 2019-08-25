@@ -123,8 +123,7 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 
 	transport_options = zend_read_property(NULL, options, ZEND_STRL("transportOptions"), 1 TSRMLS_DC);
 
-	MAKE_STD_ZVAL(retval);
-	MAKE_STD_ZVAL(ch);
+	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "get stream url:%s", Z_STRVAL_P(url) );
 	ZVAL_STRING(&function_name, "curl_init", 1);
 	params[0] = url;
 	call_user_function(EG(function_table), NULL, &function_name, ch, 1, params TSRMLS_DC);

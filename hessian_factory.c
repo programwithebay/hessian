@@ -441,10 +441,11 @@ void hessian_factory_construct(zval *self)
 	
 	ALLOC_ZVAL(arr1);
 	array_init_size(arr1, 2);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&self, sizeof(zval*), NULL);
-	
+
 	ALLOC_ZVAL(version1);
 	ZVAL_STRING(version1, "loadVersion1", 1);
+	
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&self, sizeof(zval*), NULL);
 	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&version1, sizeof(zval*), NULL);
 	
 	ALLOC_ZVAL(arr2);

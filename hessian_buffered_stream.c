@@ -159,9 +159,14 @@ void hessian_ensure_buffer_size(zval **self, long size){
 	}
 	new_buffer_alloc_size = multi * buffer_size;
 	if (!bytes){
-		bytes = emalloc(new_buffer_alloc_size);
+		bytes = pemalloc(new_buffer_alloc_size,  0);
 	}else{
-		bytes = perealloc(bytes, new_buffer_alloc_size, 0);
+		char *new_buf;
+		new_buf = pemalloc(new_buffer_alloc_size, 0);
+		memcpy(new_buf, buf, buffer_alloc_size);
+		pefree(bytes, 0);
+		bytes = new_buf;
+		//bytes = perealloc(bytes, new_buffer_alloc_size, 0);
 	}
 	if (!bytes){
 		php_error_docref(NULL, E_ERROR, "BufferInputStream alloc memory error");
@@ -172,9 +177,9 @@ void hessian_ensure_buffer_size(zval **self, long size){
 
 
 /*
-	check read
+	read from buffer
 */
-char* hessian_buffered_stream_read(zval **self, long new_pos){
+char* hessian_buffered_stream_read(zval **self, long new_pos, char change_pos){
 	zval *fp, *this;
 	zval *property;
 	php_stream *stream;
@@ -189,17 +194,18 @@ char* hessian_buffered_stream_read(zval **self, long new_pos){
 	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(this TSRMLS_CC);
 	fp = zend_read_property(hessian_buffered_stream_entry, this, ZEND_STRL("fp"), 0 TSRMLS_DC);
 	php_stream_from_zval_no_verify(stream, &fp); 
-	len = obj->entity.length;
 
+	len = obj->entity.length;
 	if (php_stream_eof(stream) && (new_pos > len)) {
-		php_error_docref(NULL, E_WARNING, "read past end of stream: %d", new_pos);
-		return;
+		zend_error(E_WARNING, "read past end of stream: %d", new_pos);
+		return NULL;
 	}
 
 	hessian_ensure_buffer_size(self, new_pos);
+	
 	bytes = obj->entity.bytes;
 	buffer_size = obj->entity.buffer_size;
-	buf = bytes + obj->entity.length;
+	buf = bytes + obj->entity.buffer_pos;
 	tmp_buf = buf;
 	//read  from fp
 	if (new_pos > len){
@@ -211,6 +217,9 @@ char* hessian_buffered_stream_read(zval **self, long new_pos){
 	}
 	
 	obj->entity.length = len;
+	if (change_pos > 0){
+		obj->entity.buffer_pos = new_pos;
+	}
 	return buf;
 }
 
@@ -231,20 +240,19 @@ static PHP_METHOD(HessianBufferedStream, __construct)
 		php_error_docref(NULL, E_WARNING, "fp is not a resource");
 		return;
 	}
-	self = getThis();
-	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
 	
-	if (buffer_size){
-		if(Z_TYPE_P(buffer_size) != IS_LONG){
-			php_error_docref(NULL, E_WARNING, "buffer_size is not a long number");
-			return;
+	self = getThis();
+	
+	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
+	obj->entity.buffer_size = 1024;
+	
+	if (buffer_size && Z_TYPE_P(buffer_size) == IS_LONG){
+		if (Z_LVAL_P(buffer_size) > 0){
+			obj->entity.buffer_size = Z_LVAL_P(buffer_size);
 		}
-		obj->entity.buffer_size = Z_LVAL_P(buffer_size);
-	}else{
-		obj->entity.buffer_size = 1024;
 	}
 
-	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), fp TSRMLS_DC);
+	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), fp TSRMLS_CC);
 	obj->entity.buffer_alloc_size = 0;
 	obj->entity.buffer_pos = 0;
 }
@@ -269,7 +277,7 @@ static PHP_METHOD(HessianBufferedStream, setStream)
 	}
 
 	self = getThis();
-	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), fp TSRMLS_DC);
+	zend_update_property(hessian_buffered_stream_entry, self, ZEND_STRL("fp"), fp TSRMLS_CC);
 	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
 	obj->entity.length = 0;
 }
@@ -305,10 +313,11 @@ static PHP_METHOD(HessianBufferedStream, peek)
 	}
 	new_pos = pos + Z_LVAL_P(count);
 	//check length
-	buf = hessian_buffered_stream_read(&self, new_pos);
+	buf = hessian_buffered_stream_read(&self, new_pos, 0);
 	str = emalloc(Z_LVAL_P(count) + 1);
 	if (!str){
 		php_error_docref(NULL, E_ERROR, "BuffererInputStream::peek alloc memory error");
+		return;
 	}
 	str = memcpy(str, buf, Z_LVAL_P(count));
 	RETURN_STRING(str, 0);
@@ -344,16 +353,20 @@ static PHP_METHOD(HessianBufferedStream, read)
 	self = getThis();
 	obj = (hessian_buffered_stream_object *)zend_object_store_get_object(self TSRMLS_CC);
 	new_pos = obj->entity.buffer_pos + count; 
-	str = emalloc(count+1);
+	str = emalloc(count);
 	if (!str){
 		php_error_docref(NULL, E_ERROR, "BuffererInputStream::read alloc memory error");
+		return;
 	}
 	//read
-	buf = hessian_buffered_stream_read(&self, new_pos);
+	buf = hessian_buffered_stream_read(&self, new_pos, 1);
+	if (!buf){
+		RETURN_FALSE;
+	}
 	memcpy(str, buf, count);
-	str[count] = 0;
-	obj->entity.buffer_pos = new_pos;
-	RETURN_STRING(str, 0);
+
+
+	RETURN_STRINGL(str, count, 1);
 }
 
 

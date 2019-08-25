@@ -93,12 +93,15 @@ zval* __handleCallbacks(zval* self, zval* callbacks, zval* arguments){
 	zval *params[2];
 	zval *typemap;
 	
-	typemap = zend_read_property(hessian_client_entry, self, ZEND_STRL("typemap"), 1 TSRMLS_DC);
+	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_DC);
+	Z_ADDREF_P(local);
+	Z_ADDREF_P(remote);
+	
 	params[0] = local;
 	params[1] = remote;
-	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "mapType", 1);
-	call_user_function(NULL, &typemap, &function_name, &retval, 2, params TSRMLS_CC);
+	hessian_call_class_function_helper(&typemap, &function_name, &retval, 2, params TSRMLS_CC);
+	zval_dtor(&function_name);
 
 }
 
@@ -119,9 +122,9 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 	zval retval;
 	
 
-	factory = zend_read_property(hessian_client_entry, self, ZEND_STRL("factory"), 0 TSRMLS_DC);
-	options = zend_read_property(hessian_client_entry, self, ZEND_STRL("options"), 0 TSRMLS_DC);
-	typemap = zend_read_property(hessian_client_entry, self, ZEND_STRL("typemap"), 0 TSRMLS_DC);
+	factory = zend_read_property(NULL, self, ZEND_STRL("factory"), 1 TSRMLS_CC);
+	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_CC);
+	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
 
 	ALLOC_ZVAL(transport);
 	hessian_factory_get_transport(factory, options, transport);
@@ -129,8 +132,8 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 
 	Z_TYPE(z_null) = IS_NULL;
 	params[0]= &z_null;
+	//Z_ADDREF_P(options);
 	params[1] = options;
-	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "getWriter", 1);
 	ALLOC_ZVAL(writer);
 	hessian_call_class_function_helper(factory, &function_name, 2, params, writer);
@@ -158,30 +161,33 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 	*/
 	ALLOC_ZVAL(ctx);
 	object_init_ex(ctx, hessian_calling_context_entry);
-	zend_update_property(NULL, ctx, ZEND_STRL("writer"), writer TSRMLS_DC);
-	zend_update_property(NULL, ctx, ZEND_STRL("transport"), transport TSRMLS_DC);
+	zend_update_property(NULL, ctx, ZEND_STRL("writer"), writer TSRMLS_CC);
+	zend_update_property(NULL, ctx, ZEND_STRL("transport"), transport TSRMLS_CC);
+	zend_update_property(NULL, ctx, ZEND_STRL("options"), options TSRMLS_CC);
+	zend_update_property(NULL, ctx, ZEND_STRL("typemap"), typemap TSRMLS_CC);
 
-	zend_update_property(NULL, ctx, ZEND_STRL("options"), options TSRMLS_DC);
-	zend_update_property(NULL, ctx, ZEND_STRL("typemap"), typemap TSRMLS_DC);
 
 	ALLOC_ZVAL(call);
 	object_init_ex(call, hessian_call_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
+	Z_ADDREF_P(method);
+	Z_ADDREF_P(arguments);
 	params[0] = method;
 	params[1] = arguments;
 	hessian_call_class_function_helper(call, &function_name, 2, params, &retval);
+	zval_dtor(&function_name);
 
-	zend_update_property(NULL, ctx, ZEND_STRL("call"), call TSRMLS_DC);
-	url = zend_read_property(hessian_client_entry, self, ZEND_STRL("url"), 0 TSRMLS_DC);
-	zend_update_property(NULL, ctx, ZEND_STRL("url"), url TSRMLS_DC);
+	
+	zend_update_property(NULL, ctx, ZEND_STRL("call"), call TSRMLS_CC);
+	url = zend_read_property(NULL, self, ZEND_STRL("url"), 0 TSRMLS_CC);
+	zend_update_property(NULL, ctx, ZEND_STRL("url"), url TSRMLS_CC);
 
 
 	//writeCall
 	ALLOC_ZVAL(payload);
 	hessian2_service_writer_write_call(writer, method, arguments, payload);
 
-	zend_update_property(NULL, ctx, ZEND_STRL("payload"), payload TSRMLS_DC);
-	INIT_ZVAL(args);
+	zend_update_property(NULL, ctx, ZEND_STRL("payload"), payload TSRMLS_CC);
 	array_init_size(&args, 1);
 	zend_hash_next_index_insert(Z_ARRVAL(args), &ctx, sizeof(zval *), NULL);
 
@@ -190,14 +196,14 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 			$interceptor->beforeRequest($ctx);
 		}
 	*/
-	interceptors = zend_read_property(hessian_options_entry, options, ZEND_STRL("interceptors"), 0 TSRMLS_DC);
+	interceptors = zend_read_property(NULL, options, ZEND_STRL("interceptors"), 0 TSRMLS_CC);
 
 	if (interceptors && Z_TYPE_P(interceptors) == IS_ARRAY){
 		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(interceptors), pos);
 		ZVAL_STRING(&function_name, "beforeRequest", 1);
 		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(interceptors), (void **)&src_entry, pos) == SUCCESS) {
 			params[0] = ctx;
-			if (SUCCESS  != call_user_function(NULL, src_entry, &function_name, NULL, 1, params TSRMLS_CC)){
+			if (SUCCESS  != hessian_call_class_function_helper(src_entry, &function_name, NULL, 1, params)){
 				php_error_docref(NULL, E_WARNING, "call $interceptor->beforeRequest error");
 				return;
 			}
@@ -291,7 +297,7 @@ void hessian_client_construct(zval *self, zval *url, zval *options)
 	
 
 
-	zend_update_property(hessian_client_entry, self, ZEND_STRL("url"), url TSRMLS_DC);
+	zend_update_property(NULL, self, ZEND_STRL("url"), url TSRMLS_CC);
 
 	//@todo:encode
 	/*
@@ -302,16 +308,16 @@ void hessian_client_construct(zval *self, zval *url, zval *options)
 	ALLOC_ZVAL(self_options);
 	hessian_options_resolve_options(options, self_options);
 
-
-	
 	zend_update_property(NULL, self, ZEND_STRL("options"), self_options TSRMLS_CC);
 
 	type_map = zend_read_property(NULL, self_options, ZEND_STRL("typemap"), 1 TSRMLS_CC);
+
+	
 	ALLOC_ZVAL(self_type_map);
 	object_init_ex(self_type_map, hessian_type_map_entry);
-	ZVAL_STRING(&function_name, "__construct", 1);
-	params[0] = type_map;
-	call_user_function(NULL, &self_type_map, &function_name, &retval, 1, params TSRMLS_CC);
+	hessian_typemap_construct(self_type_map, type_map);
+
+	
 	zend_update_property(NULL, self, ZEND_STRL("typemap"), self_type_map TSRMLS_CC);
 
 
@@ -370,7 +376,7 @@ static PHP_METHOD(HessianClient, __hessianCall)
 {
 	zval *method, *arguments;
 	zval *self;
-	char *str_method;
+	
 	
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &method, &arguments)) {
 		return;
@@ -380,13 +386,14 @@ static PHP_METHOD(HessianClient, __hessianCall)
 		return;
 	}
 	self = getThis();
+	
 	if (!arguments){
 		 ALLOC_ZVAL(arguments);
-		 INIT_ZVAL(*arguments);
 		 array_init(arguments);
 	}
 	
 	if (Z_STRLEN_P(method) > 1){
+		char *str_method;
 		str_method = Z_STRVAL_P(method);
 		if ((str_method[0] == '_') && (str_method[1] == '_')){
 			php_error_docref(NULL, E_WARNING, "Cannot call methods that start with __");
@@ -450,7 +457,7 @@ static PHP_METHOD(HessianClient, __getTypeMap)
 
 //calltest
 //how to write a call method
-void hessian_call_class_function_helper(zval *self, zval *function_name, int params_count, zval *params[], zval *return_value)
+int hessian_call_class_function_helper(zval *self, zval *function_name, int params_count, zval *params[], zval *return_value)
 {
 	zval *retval_ptr = NULL;
 	zend_fcall_info fci;
@@ -474,7 +481,7 @@ void hessian_call_class_function_helper(zval *self, zval *function_name, int par
 	fci.object_ptr = self;
 	if (zend_fcall_info_init(&caller, 0, &fci, &fci_cache, NULL, &is_callable_error TSRMLS_CC) == SUCCESS){
 	}else{
-		return;
+		return FAILURE;
 	}
 
 	array_init_size(&arr_params, params_count);
@@ -491,6 +498,7 @@ void hessian_call_class_function_helper(zval *self, zval *function_name, int par
 	}
 
 	zend_fcall_info_args_clear(&fci, 1);
+	return SUCCESS;
 }
 
 

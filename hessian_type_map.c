@@ -84,6 +84,8 @@ char* hessian_type_map_rule_to_regexp(zval *string){
 	params[1] = &param1;
 	params[2] = &param2;
 	call_user_function(EG(function_table), NULL, &function_name, rule, 1, params TSRMLS_DC);
+	zval_dtor(&param1);
+	zval_dtor(&param2);
 	//$rule = str_replace('.', '\.', $string);
 	//return '/' . str_replace('*', self::REG_ALL, $rule) . '/';
 
@@ -93,6 +95,10 @@ char* hessian_type_map_rule_to_regexp(zval *string){
 	params[1] = &param2;
 	params[2] = rule;
 	call_user_function(EG(function_table), NULL, &function_name, rule, 1, params TSRMLS_DC);
+	zval_dtor(&param1);
+	zval_dtor(&param2);
+	zval_dtor(&function_name);
+
 
 	char *buf;
 
@@ -177,6 +183,38 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 	}
 }
 
+
+/*
+	HessianTypeMap::__construct
+*/
+void hessian_typemap_construct(zval *self, zval *map)
+{
+	HashPosition pos;
+	zval **src_entry;
+	char *string_key;
+	uint string_key_len;
+	ulong num_key;
+	zval local;
+	
+
+	/*
+		foreach($map as $local => $remote){
+			$this->mapType($local, $remote);		
+		}
+	*/
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(map), &pos);
+	
+	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(map), (void **)&src_entry, &pos) == SUCCESS) {
+		zend_hash_get_current_key_ex(Z_ARRVAL_P(map), &string_key, &string_key_len, &num_key, 0, &pos);
+		ZVAL_STRING(&local, string_key, 0);
+		hessian_type_map_map_type(self, &local, *src_entry);
+		zend_hash_move_forward_ex(Z_ARRVAL_P(map), &pos);
+	}
+}
+
+
+
+
 /*
 	HessianTypeMap::__construct
 */
@@ -199,20 +237,11 @@ static PHP_METHOD(HessianTypeMap, __construct)
 		php_error_docref(NULL, E_WARNING, "map must be an array");
 		return;
 	}
-	/*
-		foreach($map as $local => $remote){
-			$this->mapType($local, $remote);		
-		}
-	*/
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(map), &pos);
-	
-	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(map), (void **)&src_entry, &pos) == SUCCESS) {
-		zend_hash_get_current_key_ex(Z_ARRVAL_P(map), &string_key, &string_key_len, &num_key, 0, &pos);
-		ZVAL_STRING(&local, string_key, 0);
-		hessian_type_map_map_type(self, &local, *src_entry);
-		zend_hash_move_forward_ex(Z_ARRVAL_P(map), &pos);
-	}
+	hessian_typemap_construct(self, map);
 }
+
+
+
 
 
 /*
