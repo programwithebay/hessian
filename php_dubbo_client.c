@@ -471,7 +471,7 @@ static PHP_METHOD(DubboClient, callService)
 	self = getThis();
 	obj = (dubbo_client_object *)zend_object_store_get_object(self TSRMLS_CC);
 	
-	storage = zend_read_property(NULL, self, ZEND_STRL("storage"), 1 TSRMLS_DC);
+	storage = zend_read_property(NULL, self, ZEND_STRL("storage"), 1 TSRMLS_CC);
 	if (Z_TYPE_P(storage) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "DubboClient::storage is not a object");
 		return;
@@ -484,7 +484,7 @@ static PHP_METHOD(DubboClient, callService)
 
 	
 	//test is is serviceConfig
-	service_config = zend_read_property(NULL, self, ZEND_STRL("serviceConfig"), 1 TSRMLS_DC);
+	service_config = zend_read_property(NULL, self, ZEND_STRL("serviceConfig"), 1 TSRMLS_CC);
 	if(Z_TYPE_P(service_config) != IS_ARRAY){
 		php_error_docref(NULL, E_WARNING, "DubboClient::serviceConfig is not an array");
 		return;
@@ -530,25 +530,25 @@ static PHP_METHOD(DubboClient, callService)
 	set_option_2param(cls_service_ptr, self, "version", version);
 	set_option_2param(cls_service_ptr, self, "group", group);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("connectTimeout"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("connectTimeout"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self, "connectTimeout", property);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("executeTimeout"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("executeTimeout"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self, "executeTimeout", property);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("dubbo"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("dubbo"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self,  "dubbo", property);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("loadbalance"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("loadbalance"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self,  "loadbalance", property);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("owner"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("owner"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self, "owner", property);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("protocol"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("protocol"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self, "protocol", property);
 	
-	property = zend_read_property(NULL, self, ZEND_STRL("side"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("side"), 1 TSRMLS_CC);
 	set_option_2param(cls_service_ptr, self, "side", property);
 
 	
@@ -564,7 +564,7 @@ static PHP_METHOD(DubboClient, callService)
 	//default return is false
 
 
-	property = zend_read_property(NULL, self, ZEND_STRL("retries"), 1 TSRMLS_DC);
+	property = zend_read_property(NULL, self, ZEND_STRL("retries"), 1 TSRMLS_CC);
 	retries = Z_LVAL_P(property);
 
 
@@ -574,7 +574,7 @@ static PHP_METHOD(DubboClient, callService)
 	params[0] = arg_method;
 	params[1]= arg_params;
 	ZVAL_STRING(&function_failed, "failed", 1);
-	log_call_back = zend_read_property(NULL, self, ZEND_STRL("logCallback"), 1 TSRMLS_DC);
+	log_call_back = zend_read_property(NULL, self, ZEND_STRL("logCallback"), 1 TSRMLS_CC);
 	is_callable = zend_is_callable_ex(log_call_back, NULL, 0, NULL, NULL, NULL, &error TSRMLS_CC);
 
 	//for log callback

@@ -254,6 +254,9 @@ void register_hessian_ext_class(){
 	
 	INIT_CLASS_ENTRY(ce_hessian_factory, "HessianFactory", hessian_factory_functions);
 	hessian_factory_entry = zend_register_internal_class(&ce_hessian_factory TSRMLS_CC);
+	zend_declare_property_null(hessian_factory_entry, "protocols", sizeof("protocols")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_factory_entry, "transports", sizeof("transports")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(hessian_factory_entry, "cacheRules", sizeof("cacheRules")-1,  ZEND_ACC_PUBLIC TSRMLS_CC);
 
 
 	//HessianIgnoreCode && HessianClassDef

@@ -438,48 +438,54 @@ void hessian_factory_construct(zval *self)
 	zval *arr1, *arr2, *version1, *version2;
 	zval *transports, *curl, *http_stream;
 	zval *protocols;
-	
+
 	ALLOC_ZVAL(arr1);
 	array_init_size(arr1, 2);
 
 	ALLOC_ZVAL(version1);
 	ZVAL_STRING(version1, "loadVersion1", 1);
-	
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&self, sizeof(zval*), NULL);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), (void *)&version1, sizeof(zval*), NULL);
-	
+
+	Z_ADDREF_P(self);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), &self, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr1), &version1, sizeof(zval*), NULL);
+
+
 	ALLOC_ZVAL(arr2);
+
 	array_init_size(arr2, 2);
 	ALLOC_ZVAL(version2);
+	//Z_TYPE_P(version2) = IS_STRING;
+	//Z_STRLEN_P(version2) = strlen("loadVersion2");
+	//Z_STRVAL_P(version2) = estrndup("loadVersion2", Z_STRLEN_P(version2));
 	ZVAL_STRING(version2, "loadVersion2", 1);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), (void *)&self, sizeof(zval*), NULL);
-	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), (void *)&version2, sizeof(zval*), NULL);
+	Z_ADDREF_P(self);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), &self, sizeof(zval*), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_P(arr2), &version2, sizeof(zval*), NULL);
 
 
 
-
-	ALLOC_ZVAL(protocols);
+	protocols = zend_read_property(NULL, self, ZEND_STRL("protocols"), 1 TSRMLS_CC);
 	array_init_size(protocols, 2);
-	zend_hash_add(Z_ARRVAL_P(protocols), "1", 1, (void *)&arr1, sizeof(zval*), NULL);
-	zend_hash_add(Z_ARRVAL_P(protocols), "2", 1, (void *)&arr2, sizeof(zval*), NULL);
-	zend_update_property(NULL, self, ZEND_STRL("protocols"),  protocols TSRMLS_DC);
+	zend_hash_add(Z_ARRVAL_P(protocols), "1", 1, &arr1, sizeof(zval*), NULL);
+	zend_hash_add(Z_ARRVAL_P(protocols), "2", 1, &arr2, sizeof(zval*), NULL);
+	zend_update_property(NULL, self, ZEND_STRL("protocols"),  protocols TSRMLS_CC);
 
-	
 
 	//transports
-	ALLOC_ZVAL(transports);
+	transports = zend_read_property(NULL, self, ZEND_STRL("transports"), 1 TSRMLS_CC);
 	array_init_size(transports, 3);
 	
 	ALLOC_ZVAL(curl);
 	ZVAL_STRING(curl, "HessianCURLTransport", 1);
-	zend_hash_add(Z_ARRVAL_P(transports), "CURL", 4, (void *)&curl, sizeof(zval*), NULL);
-	zend_hash_add(Z_ARRVAL_P(transports), "curl",4, (void *)&curl, sizeof(zval*), NULL);
+	zend_hash_add(Z_ARRVAL_P(transports), "CURL", 4, &curl, sizeof(zval*), NULL);
+	zend_hash_add(Z_ARRVAL_P(transports), "curl", 4, &curl, sizeof(zval*), NULL);
+
 	
 	ALLOC_ZVAL(http_stream);
 	ZVAL_STRING(http_stream, "HessianHttpStreamTransport", 1);
-	zend_hash_add(Z_ARRVAL_P(transports), "http", 4, (void *)&http_stream, sizeof(zval*), NULL);
+	zend_hash_add(Z_ARRVAL_P(transports), "http", 4, &http_stream, sizeof(zval*), NULL);
 
-	zend_update_property(NULL, self, ZEND_STRL("transports"),  transports TSRMLS_DC);
+	zend_update_property(NULL, self, ZEND_STRL("transports"),  transports TSRMLS_CC);
 }
 
 

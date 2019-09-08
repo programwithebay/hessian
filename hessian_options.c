@@ -22,6 +22,8 @@
 #include "php_ini.h"
 #include "hessian_common.h"
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_options_construct, 0, 0, 0)
+ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_hessian_options_from_array, 0, 0, 1)
 	ZEND_ARG_INFO(0, array) /* string */
@@ -64,11 +66,13 @@ void hessian_options_from_array(zval *self, zval * array){
 	for(i=0; i<18;i++){
 		if (SUCCESS == zend_hash_find(Z_ARRVAL_P(array), hessian_options_property[i]
 			, strlen(hessian_options_property[i])+1, (void **)&array_value)){
-			zend_update_property(hessian_options_entry, self, hessian_options_property[i]
+			//need addref?
+			zend_update_property(NULL, self, hessian_options_property[i]
 				, strlen(hessian_options_property[i]), *array_value TSRMLS_CC);
 		}
 	}
 }
+
 
 /**
 	HessianOptions::fromArray
@@ -103,6 +107,68 @@ static PHP_METHOD(HessianOptions, fromArray)
 }
 
 
+/*
+*/
+void hessian_options_construct(zval *self){
+	zval *type_map;
+	zval *interceptors;
+	zval *parse_filters;
+	zval *write_filters;
+	zval *before;
+	zval *after;
+
+
+	type_map = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(type_map) != IS_ARRAY){
+		array_init(type_map);
+		zend_update_property(NULL, self, ZEND_STRL("typemap"), type_map TSRMLS_CC);
+	}
+
+	interceptors = zend_read_property(NULL, self, ZEND_STRL("interceptors"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(interceptors) != IS_ARRAY){
+		array_init(interceptors);
+		zend_update_property(NULL, self, ZEND_STRL("interceptors"), interceptors TSRMLS_CC);
+	}
+
+	parse_filters = zend_read_property(NULL, self, ZEND_STRL("parseFilters"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(parse_filters) != IS_ARRAY){
+		array_init(parse_filters);
+		zend_update_property(NULL, self, ZEND_STRL("parseFilters"), parse_filters TSRMLS_CC);
+	}
+
+	write_filters = zend_read_property(NULL, self, ZEND_STRL("writeFilters"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(write_filters) != IS_ARRAY){
+		array_init(write_filters);
+		zend_update_property(NULL, self, ZEND_STRL("writeFilters"), write_filters TSRMLS_CC);
+	}
+
+	before = zend_read_property(NULL, self, ZEND_STRL("before"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(before) != IS_ARRAY){
+		array_init(before);
+		zend_update_property(NULL, self, ZEND_STRL("before"), before TSRMLS_CC);
+	}
+
+	after = zend_read_property(NULL, self, ZEND_STRL("after"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(after) != IS_ARRAY){
+		array_init(after);
+		zend_update_property(NULL, self, ZEND_STRL("after"), after TSRMLS_CC);
+	}
+}
+
+
+
+/**
+	HessianOptions::__construct
+**/
+
+static PHP_METHOD(HessianOptions, __construct)
+{
+	zval *self;
+	self = getThis();
+	hessian_options_construct(self);
+}
+
+
 /**
 	HessianOptions::fromArray
 **/
@@ -113,6 +179,7 @@ void hessian_options_resolve_options(zval *object, zval *return_value)
 	
 	ALLOC_ZVAL(options);
 	object_init_ex(options, hessian_options_entry);
+	hessian_options_construct(options);
 	if (Z_TYPE_P(object) == IS_NULL){
 		RETURN_ZVAL(options, 0, NULL);
 	}
@@ -140,6 +207,9 @@ void hessian_options_resolve_options(zval *object, zval *return_value)
 			convert_to_array(object);
 			hessian_options_from_array(options, object);
 		}
+	}else{
+		zend_error(E_ERROR, "unknown options");
+		return;
 	}
 
 
@@ -167,6 +237,7 @@ static PHP_METHOD(HessianOptions, resolveOptions)
 
 //HessianOptions  functions
 const zend_function_entry hessian_options_functions[] = {
+	PHP_ME(HessianOptions, __construct,		arginfo_hessian_options_construct, 	ZEND_ACC_PUBLIC)
 	PHP_ME(HessianOptions, fromArray,		arginfo_hessian_options_from_array,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianOptions, resolveOptions,		arginfo_hessian_options_resolve_options,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */

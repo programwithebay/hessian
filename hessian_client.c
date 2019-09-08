@@ -296,7 +296,7 @@ void hessian_client_construct(zval *self, zval *url, zval *options)
 	zval retval;
 	
 
-
+	Z_ADDREF_P(url);
 	zend_update_property(NULL, self, ZEND_STRL("url"), url TSRMLS_CC);
 
 	//@todo:encode

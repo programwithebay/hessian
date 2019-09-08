@@ -148,8 +148,9 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 			local_rules = zend_read_property(NULL, self, ZEND_STRL("localRules"), 1 TSRMLS_DC);
 			if (Z_TYPE_P(local_rules) != IS_ARRAY){
 				array_init_size(local_rules, 2);
+				zend_update_property(NULL,  self, ZEND_STRL("localRules"), local_rules TSRMLS_CC);
 			}
-			MAKE_STD_ZVAL(new_val);
+			ALLOC_ZVAL(new_val);
 			ZVAL_STRING(new_val, Z_STRVAL_P(remote), 1);
 			zend_hash_add(Z_ARRVAL_P(local_rules), rule, strlen(rule)-1, &new_val, sizeof(zval*), NULL);
 		}else{
@@ -164,7 +165,7 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 				if (Z_TYPE_P(remote_rules) != IS_ARRAY){
 					array_init_size(remote_rules, 2);
 				}
-				MAKE_STD_ZVAL(new_val);
+				ALLOC_ZVAL(new_val);
 				ZVAL_STRING(new_val, Z_STRVAL_P(local), 1);
 				zend_hash_add(Z_ARRVAL_P(remote_rules), rule, strlen(rule)-1, &new_val, sizeof(zval*), NULL);
 			}
@@ -176,7 +177,7 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 			if (Z_TYPE_P(types) != IS_ARRAY){
 				array_init_size(types, 2);
 			}
-			MAKE_STD_ZVAL(new_val);
+			ALLOC_ZVAL(new_val);
 			ZVAL_STRING(new_val, Z_STRVAL_P(local), 1);
 			zend_hash_add(Z_ARRVAL_P(types), Z_STRVAL_P(remote), Z_STRLEN_P(remote), (void *)&new_val, sizeof(zval*), NULL);
 		}
