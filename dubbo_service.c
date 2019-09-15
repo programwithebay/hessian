@@ -61,7 +61,7 @@ zend_class_entry *dubbo_service_class_entry;
 
 
 //select provider
-zval* hessian_dubbo_service_select_provider(zval *self){
+zval* hessian_dubbo_service_select_provider(zval* self){
 	/*
 		if (false === $this->initProvider) {
             $this->delInvalidProvider();
@@ -109,14 +109,15 @@ zval* hessian_dubbo_service_select_provider(zval *self){
 		ZVAL_STRING(&function_name, "urldecode", 1);
 
 		zval *provider;
+		zval decode_res;
 		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(self_providers), (void **)&src_entry, &pos) == SUCCESS) {
 			flag = 0;
 			params[0]= *src_entry;
 			
-			call_user_function(EG(function_table), NULL, &function_name, *src_entry, 1, params TSRMLS_CC);
-			provider = *src_entry;
-			buf = Z_STRVAL_P(provider);
-			for(i=0; i<Z_STRLEN_P(provider); i++){
+			call_user_function(EG(function_table), NULL, &function_name, &decode_res, 1, params TSRMLS_CC);
+			//provider = &decode_res;
+			buf = Z_STRVAL(decode_res);
+			for(i=0; i<Z_STRLEN(decode_res); i++){
 				if (buf[i] == ':'){
 					flag = 1;
 					break;
@@ -128,7 +129,7 @@ zval* hessian_dubbo_service_select_provider(zval *self){
 					zval *new_provider;
 
 					ALLOC_ZVAL(new_provider);
-					ZVAL_STRINGL(new_provider, Z_STRVAL_P(provider), Z_STRLEN_P(provider), NULL);
+					ZVAL_STRINGL(new_provider, Z_STRVAL(decode_res), Z_STRLEN(decode_res), 1);
 					zend_hash_next_index_insert(Z_ARRVAL_P(providers), &new_provider, sizeof(zval *), NULL);
 				}
 			}
@@ -174,7 +175,7 @@ zval* hessian_dubbo_service_select_provider(zval *self){
 	params[1] = &param1;
 
 	index = zend_read_property(NULL, self, ZEND_STRS("curProviderIndex"), 1 TSRMLS_CC);
-	call_user_function(EG(function_table), NULL, &function_name, index, 2, params TSRMLS_DC);
+	call_user_function(EG(function_table), NULL, &function_name, index, 2, params TSRMLS_CC);
 	zval_dtor(&function_name);
 	
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(providers), &pos);
@@ -201,7 +202,7 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 
 	zval function_name;
 	zval param1, param2;
-	zval *arg_params[2];
+	zval *arg_params[3];
 	zval url_info, **query, arr_query_param, *params;
 	zval arr_options;
 	zval *options;
@@ -210,7 +211,7 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	char *str_version, *str_group;
 	zval *res;
 
-	php_error_docref(NULL, E_NOTICE, "provider:%s", Z_STRVAL_P(provider));
+	//php_error_docref(NULL, E_NOTICE, "provider:%s", Z_STRVAL_P(provider));
 
 
 	ALLOC_ZVAL(res);
@@ -223,11 +224,13 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 
 	call_user_function(EG(function_table), NULL, &function_name, res, 3, arg_params TSRMLS_CC);
 	zval_dtor(&function_name);
+	//zval_dtor(&param1);
+	//zval_dtor(&param2);
 
 		
 
 	ZVAL_STRING(&function_name, "parse_url", 1);
-	Z_ADDREF_P(provider);
+	//Z_ADDREF_P(provider);
 	arg_params[0] = provider;
 	call_user_function(EG(function_table), NULL, &function_name, &url_info, 1, arg_params TSRMLS_CC);
 	zval_dtor(&function_name);
@@ -243,11 +246,12 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 	//here has problem, cause memory
 	ZVAL_STRING(&function_name, "explode", 1);
 	ZVAL_STRING(&param1, "&", 1);
-	Z_ADDREF_P(*query);
+	//Z_ADDREF_P(*query);
 	arg_params[0]  = &param1;
 	arg_params[1] = *query;
 	call_user_function(EG(function_table), NULL, &function_name, &arr_query_param, 2, arg_params TSRMLS_CC);
 	zval_dtor(&function_name);
+	//zval_dtor(&param1);
 
 	
 	HashPosition pos;
@@ -281,7 +285,7 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
 		//zval_copy_ctor(zvalue)
 		zend_hash_move_forward_ex(Z_ARRVAL(arr_query_param), &pos);
 	}
-	zval_dtor(&function_name);
+	//zval_dtor(&function_name);
 
 
 	/*
@@ -401,6 +405,7 @@ void dubbo_service_call(zval *self, zval *method, zval *arg_params, zval *return
 
 	provider = hessian_dubbo_service_select_provider(self);
 	provider = hessian_dubbo_service_format_provider(self, provider);
+	//ALLOC_ZVAL(provider);
 	//Z_STRVAL_P(provider) = "http://www.baidu.com";
 	//Z_STRLEN_P(provider) = strlen( "http://www.baidu.com");
 
@@ -480,11 +485,12 @@ void dubbo_service_call(zval *self, zval *method, zval *arg_params, zval *return
 		//ZVAL_STRING(&function_name, "addDtoMap", 1);
 		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(dto_map), &pos);
 		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(dto_map), (void **)&src_entry, &pos) == SUCCESS) {
+			zval *local;
 			zend_hash_get_current_key_ex(Z_ARRVAL_P(dto_map), &string_key, &string_key_len, &num_key, 0, &pos);
 
-			ALLOC_ZVAL(param1);
-			ZVAL_STRINGL(param1, string_key, string_key_len, 1);
-			hessian_client_add_dto_map(client, param1, *src_entry);
+			ALLOC_ZVAL(local);
+			ZVAL_STRINGL(local, string_key, string_key_len, 1);
+			hessian_client_add_dto_map(client, local, *src_entry);
 
 			/*
 			ZVAL_STRING(&param1, string_key, 1);

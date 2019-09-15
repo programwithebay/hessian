@@ -170,6 +170,31 @@ static PHP_METHOD(HessianReferenceMap, getClassIndex)
 	RETURN_FALSE;
 }
 
+/*
+	HessianReferenceMap::getClassIndex
+*/
+void hessian_reference_map_add_class_def(zval *self, zval *class_def, zval *return_value)
+{
+	zval *prop_class_list;
+
+
+	/*
+		$this->classlist[] = $classdef;
+		return count($this->classlist) - 1;
+	*/
+
+	prop_class_list = zend_read_property(NULL, self, ZEND_STRL("classlist"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(prop_class_list) != IS_ARRAY){
+		array_init_size(prop_class_list, 1);
+		zend_update_property(NULL, self, ZEND_STRL("classlist"), prop_class_list TSRMLS_CC);
+	}
+	zend_hash_next_index_insert(Z_ARRVAL_P(prop_class_list), &class_def, sizeof(zval*), NULL);
+
+	RETURN_LONG(zend_hash_num_elements(Z_ARRVAL_P(prop_class_list)) - 1);
+}
+
+
+
 
 /*
 	HessianReferenceMap::getClassIndex
@@ -189,6 +214,9 @@ static PHP_METHOD(HessianReferenceMap, addClassDef)
 		return count($this->classlist) - 1;
 	*/
 
+	hessian_reference_map_add_class_def(self, class_def, return_value);
+
+	/*
 	prop_class_list = zend_read_property(hessian_reference_map_entry, self, ZEND_STRL("classlist"), 1 TSRMLS_DC);
 	if (Z_TYPE_P(prop_class_list) != IS_ARRAY){
 		ALLOC_ZVAL(prop_class_list);
@@ -197,6 +225,7 @@ static PHP_METHOD(HessianReferenceMap, addClassDef)
 	zend_hash_next_index_insert(Z_ARRVAL_P(prop_class_list), class_def, sizeof(zval*), NULL);
 
 	RETURN_LONG(zend_hash_num_elements(Z_ARRVAL_P(prop_class_list)));
+	*/
 }
 
 

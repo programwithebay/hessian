@@ -95,19 +95,16 @@ void hessian2_service_writer_write_call(zval *self, zval *method, zval *params, 
 	//$stream = $this->writeVersion();
 	ALLOC_ZVAL(stream);
 	hessian2_service_writer_write_version(stream);
-	if (Z_TYPE_P(stream) != IS_STRING || Z_STRLEN_P(stream) < 1){
-		php_error_docref(NULL, E_WARNING, "call stream->writeVersion error");
-		return;
-	}
+
 	if (Z_TYPE_P(params) != IS_ARRAY){
 		params_count = 0;
 	}else{
 		params_count = zend_hash_num_elements(Z_ARRVAL_P(params));
 	}
 	buf_size = Z_STRLEN_P(stream) + 1;
-	buf = Z_STRVAL_P(stream);
-	//$stream .= 'C';
+
 	
+	//$stream .= 'C';
 	//$stream .= $this->writeString($method);
 	hessian2_writer_write_string(self, method, &write_string_res);
 
@@ -136,14 +133,9 @@ void hessian2_service_writer_write_call(zval *self, zval *method, zval *params, 
 		i=0;
 		HashPosition pos;
 		zval **src_entry;
-		//ZVAL_STRING(&function_name, "writeValue", 1);
 
-		
 		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(params), &pos);
 		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(params), (void **)&src_entry, &pos) == SUCCESS) {
-			//call_params[0] = *src_entry;
-			//hessian_call_class_function_helper(self, &function_name, 1,  call_params, params_ptr[i]);
-
 			hessian2_writer_write_value(self,  *src_entry, &params_ptr[i]);
 			
 			//call_user_function(NULL, &self, &function_name, params_ptr[i], 1, call_params TSRMLS_DC);
@@ -163,18 +155,23 @@ void hessian2_service_writer_write_call(zval *self, zval *method, zval *params, 
 	p = buf;
 	memcpy(p, Z_STRVAL_P(stream), Z_STRLEN_P(stream));
 	p += Z_STRLEN_P(stream);
+	zval_dtor(stream);
+	FREE_ZVAL(stream);
 	*p = 'C';
 	++p;
+
+	
 	memcpy(p, Z_STRVAL(write_string_res), Z_STRLEN(write_string_res));
 	p += Z_STRLEN(write_string_res);
 	memcpy(p, Z_STRVAL(write_int_res), Z_STRLEN(write_int_res));
 	p += Z_STRLEN(write_int_res);
+	zval_dtor(&write_string_res);
 
 	//params
 	for(i=0; i<params_count; i++){
 		memcpy(p, Z_STRVAL(params_ptr[i]), Z_STRLEN(params_ptr[i]));
 		p += Z_STRLEN(params_ptr[i]);
-		zval_dtor(&params_ptr[i]);
+		//zval_dtor(&params_ptr[i]);
 	}
 	if (params_count > 0){
 		pefree(params_ptr, 0);

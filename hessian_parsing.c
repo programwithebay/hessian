@@ -64,6 +64,17 @@ ZEND_DECLARE_MODULE_GLOBALS(hessian)
 /*
 	HessianCall::__construct
 */
+void hessian_call_construct(zval *self, zval *method, zval *arguments)
+{
+	zend_update_property(NULL, self, ZEND_STRL("method"),  method TSRMLS_CC);
+	zend_update_property(NULL, self, ZEND_STRL("arguments"), arguments TSRMLS_CC);
+}
+
+
+
+/*
+	HessianCall::__construct
+*/
 static PHP_METHOD(HessianCall, __construct)
 {
 	zval *self, *method, *arguments;
@@ -73,8 +84,7 @@ static PHP_METHOD(HessianCall, __construct)
 	}
 
 	self= getThis();
-	zend_update_property(hessian_call_entry, self, ZEND_STRL("method"),  method TSRMLS_DC);
-	zend_update_property(hessian_call_entry, self, ZEND_STRL("arguments"), arguments TSRMLS_DC);
+	hessian_call_construct(self, method, arguments);
 }
 
 

@@ -570,9 +570,9 @@ static PHP_METHOD(DubboClient, callService)
 
 
 	//init function name
-	ZVAL_STRING(&function_name, "call", 1);
-	params[0] = arg_method;
-	params[1]= arg_params;
+	//ZVAL_STRING(&function_name, "call", 1);
+	//params[0] = arg_method;
+	//params[1]= arg_params;
 	ZVAL_STRING(&function_failed, "failed", 1);
 	log_call_back = zend_read_property(NULL, self, ZEND_STRL("logCallback"), 1 TSRMLS_CC);
 	is_callable = zend_is_callable_ex(log_call_back, NULL, 0, NULL, NULL, NULL, &error TSRMLS_CC);
@@ -580,7 +580,7 @@ static PHP_METHOD(DubboClient, callService)
 	//for log callback
 	fci = obj->entity.fci;
 	fci_cache = obj->entity.fci_cache;
-	
+
 	for(i=0; i<retries; i++){
 		dubbo_service_call(cls_service_ptr, arg_method, arg_params, return_value);
 		if (i_zend_is_true(return_value)){
@@ -611,12 +611,12 @@ static PHP_METHOD(DubboClient, callService)
 		}
 
 		//failed
-		hessian_call_class_function_helper(&cls_service_ptr, &function_name, 0, params, return_value);
+		hessian_call_class_function_helper(&cls_service_ptr, &function_failed, 0, params, return_value);
 	}
 	if (error){
 		efree(error);
 	}
-	zval_dtor(&function_name);
+	//zval_dtor(&function_name);
 	zval_dtor(&function_failed);
 }
 

@@ -207,7 +207,7 @@ void hessian_typemap_construct(zval *self, zval *map)
 	
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(map), (void **)&src_entry, &pos) == SUCCESS) {
 		zend_hash_get_current_key_ex(Z_ARRVAL_P(map), &string_key, &string_key_len, &num_key, 0, &pos);
-		ZVAL_STRING(&local, string_key, 0);
+		ZVAL_STRING(&local, string_key, 1);
 		hessian_type_map_map_type(self, &local, *src_entry);
 		zend_hash_move_forward_ex(Z_ARRVAL_P(map), &pos);
 	}

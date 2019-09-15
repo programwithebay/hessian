@@ -59,13 +59,14 @@ void hessian_curl_transport_test_available(zval *self)
 			throw new Exception('You need to enable the CURL extension to use the curl transport');
 	*/
 	ZVAL_STRING(&function_name, "function_exists", 1);
-	MAKE_STD_ZVAL(param1);
+	ALLOC_ZVAL(param1);
 	ZVAL_STRING(param1, "curl_init", 1);
 	params[0] = param1;
 
 	call_user_function(EG(function_table), NULL, &function_name, &retval, 1, params  TSRMLS_DC);
 	zval_dtor(&function_name);
 	zval_dtor(param1);
+	FREE_ZVAL(param1);
 	
 	if (Z_BVAL(retval) < 1){
 		zend_error(E_WARNING, "You need to enable the CURL extension to use the curl transport", 0);
@@ -123,7 +124,8 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 
 	transport_options = zend_read_property(NULL, options, ZEND_STRL("transportOptions"), 1 TSRMLS_DC);
 
-	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "get stream url:%s", Z_STRVAL_P(url) );
+	//php_error_docref(NULL TSRMLS_CC, E_NOTICE, "get stream url:%s", Z_STRVAL_P(url) );
+	ALLOC_ZVAL(ch);
 	ZVAL_STRING(&function_name, "curl_init", 1);
 	params[0] = url;
 	call_user_function(EG(function_table), NULL, &function_name, ch, 1, params TSRMLS_DC);
@@ -177,7 +179,8 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 		php_array_merge(Z_ARRVAL_P(curl_options), Z_ARRVAL_P(transport_options), 0 TSRMLS_DC);
 	}
 
-	
+
+	ALLOC_ZVAL(retval);
 	ZVAL_STRING(&function_name, "curl_setopt_array", 1);
 	params[0] = ch;
 	params[1] = curl_options;
