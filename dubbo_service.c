@@ -171,6 +171,7 @@ zval* hessian_dubbo_service_select_provider(zval* self){
 
 	ZVAL_STRING(&function_name, "array_rand", 1);
 	params[0] = providers;
+	INIT_ZVAL(param1);
 	ZVAL_LONG(&param1, 1);
 	params[1] = &param1;
 
@@ -301,7 +302,7 @@ zval* hessian_dubbo_service_format_provider(zval *self, zval *provider){
         }
         */
 
-	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_DC);
+	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_CC);
 	if (SUCCESS != zend_hash_find(Z_ARRVAL_P(options), "version", strlen("version")+1, (void **)&option_version TSRMLS_CC)){
 		zend_error(E_ERROR, "hessian_dubbo_service_format_provider provider version empty");
 		return;
@@ -358,6 +359,22 @@ void dubbo_service_construct(zval *self, zval *name, zval *providers, zval *cons
 		return;
 	}
 
+	//for $providers, $options, $dtoMap
+	zval *options, *dto_map;
+
+	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(options) != IS_ARRAY){
+		MAKE_STD_ZVAL(options);
+		array_init(options);
+		zend_update_property(NULL, self, ZEND_STRL("options"), options TSRMLS_CC);
+	}
+	dto_map = zend_read_property(NULL, self, ZEND_STRL("dtoMap"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(dto_map) != IS_ARRAY){
+		MAKE_STD_ZVAL(dto_map);
+		array_init(dto_map);
+		zend_update_property(NULL, self, ZEND_STRL("dtoMap"), dto_map TSRMLS_CC);
+	}
+	
 	zend_update_property(NULL, self, ZEND_STRL("name"), name TSRMLS_CC);
 	zend_update_property(NULL, self, ZEND_STRL("providers"), providers TSRMLS_CC);
 	zend_update_property(NULL, self, ZEND_STRL("consumers"), consumers TSRMLS_CC);
@@ -373,7 +390,7 @@ void get_service_by_name(zval *name, zval *storage, zval* retval){
 
 	dubbo_file_storage_get(storage, name, &config);
 	if (Z_TYPE(config) != IS_ARRAY){
-		php_error_docref(NULL, E_WARNING, "%s config file is not json format");
+		php_error_docref(NULL, E_WARNING, "config file is not json format");
 		return;
 	}
 
@@ -567,12 +584,12 @@ void dubbo_service_set_option(zval *self, zval *name, zval *value)
 	zval *options;
 	zval *pvalue;
 	
-	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_DC);
+	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_CC);
 	if (Z_TYPE_P(options) != IS_ARRAY){
 		//init array
-		ALLOC_ZVAL(options);
+		INIT_PZVAL(options);
 		array_init_size(options, 8);
-		zend_update_property(NULL, self, ZEND_STRL("options"), options TSRMLS_DC);
+		zend_update_property(NULL, self, ZEND_STRL("options"), options TSRMLS_CC);
 	}
 	zend_hash_update(Z_ARRVAL_P(options), Z_STRVAL_P(name), Z_STRLEN_P(name)+1, (void **)&value, sizeof(zval *), NULL);
 }
@@ -634,7 +651,7 @@ static PHP_METHOD(DubboService, save)
 	zval *providers, *consumers, *storage, *name;
 	zval *self;
 	zval *params[2];
-	zval function_name;
+	zval function_name, retval;
 
 	self = getThis();
 	providers = zend_read_property(dubbo_service_class_entry, self, ZEND_STRL("providers"), 1 TSRMLS_DC);
@@ -653,7 +670,7 @@ static PHP_METHOD(DubboService, save)
 	params[1] = value;
 	INIT_ZVAL(function_name);
 	ZVAL_STRING(&function_name, "set", 1);
-	call_user_function(NULL, &storage, &function_name, NULL, 2, params TSRMLS_CC);
+	hessian_call_class_function_helper(storage, &function_name, 2, params, &retval);
 	zval_dtor(&function_name);
 }
 

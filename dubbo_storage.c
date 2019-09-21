@@ -184,100 +184,49 @@ static PHP_METHOD(DubboStorageAbstract, getConfig)
 static PHP_METHOD(DubboStorageAbstract, encode)
 {
 	zval *val;
-	smart_str buf = {0};
-	long options = 0;
-	char has_error = 0;
+	zval function_name;
+	zval *params[2];
+	zval ret;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &val) == FAILURE) {
 		return;
 	}
 
-	switch (Z_TYPE_P(val))
-	{
-		case IS_NULL:
-			smart_str_appendl(&buf, "null", 4);
-			break;
-
-		case IS_BOOL:
-			if (Z_BVAL_P(val)) {
-				smart_str_appendl(&buf, "true", 4);
-			} else {
-				smart_str_appendl(&buf, "false", 5);
-			}
-			break;
-
-		case IS_LONG:
-			smart_str_append_long(&buf, Z_LVAL_P(val));
-			break;
-
-		case IS_DOUBLE:
-			{
-				char *d = NULL;
-				int len;
-				double dbl = Z_DVAL_P(val);
-
-				if (!zend_isinf(dbl) && !zend_isnan(dbl)) {
-					len = spprintf(&d, 0, "%.*k", (int) EG(precision), dbl);
-					smart_str_appendl(&buf, d, len);
-					efree(d);
-				} else {
-					smart_str_appendc(&buf, '0');
-					has_error = 1;
-				}
-			}
-			break;
-
-		case IS_STRING:
-			json_escape_string(&buf, Z_STRVAL_P(val), Z_STRLEN_P(val), options TSRMLS_CC);
-			break;
-
-		case IS_OBJECT:
-			if (instanceof_function(Z_OBJCE_P(val), php_json_serializable_ce TSRMLS_CC)) {
-				json_encode_serializable_object(&buf, val, options TSRMLS_CC);
-				break;
-			}
-			/* fallthrough -- Non-serializable object */
-		case IS_ARRAY:
-			json_encode_array(&buf, &val, options TSRMLS_CC);
-			break;
-
-		default:
-			smart_str_appendl(&buf, "null", 4);
-			has_error = 1;
-			break;
-	}
-
-	if (has_error){
-		ZVAL_FALSE(return_value);
-	}else{
-		ZVAL_STRINGL(return_value, buf.c, buf.len, 1);
-	}
-
-	smart_str_free(&buf);
-
+	ZVAL_STRING(&function_name, "json_encode", 1);
+	params[0] = val;
+	call_user_function(EG(function_table), NULL, &function_name, &ret, 1, params TSRMLS_CC);
+	zval_dtor(&function_name);
+	
+	RETURN_STRINGL(Z_STRVAL(ret), Z_STRLEN(ret), 1);
+	
 }
 
 //decode
 static PHP_METHOD(DubboStorageAbstract, decode)
 {
-	char *str;
-	int str_len;
-	long depth = 512;
-	long options = 0;
+	zval *str;
+	zval function_name;
+	zval *params[2];
+	zval ret, z_true;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &str) == FAILURE) {
 		return;
 	}
 
 
-	if (!str_len) {
-		RETURN_NULL();
+	if (Z_TYPE_P(str) != IS_STRING){
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "value must be a string");
+		return;
 	}
 
-	/* For BC reasons, the bool $assoc overrides the long $options bit for PHP_JSON_OBJECT_AS_ARRAY */
-	options |=  PHP_JSON_OBJECT_AS_ARRAY;
+	ZVAL_STRING(&function_name, "json_decode", 1);
+	params[0] = str;
+	ZVAL_TRUE(&z_true);
+	params[1] = &z_true;
+	call_user_function(EG(function_table), NULL, &function_name, &ret, 2, params TSRMLS_CC);
+	zval_dtor(&function_name);
 
-	php_json_decode_ex(return_value, str, str_len, options, depth TSRMLS_CC);
+	RETURN_ZVAL(&ret, 1,  NULL);
 }
 
 
@@ -392,7 +341,8 @@ void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 	base_path = get_dubbo_file_storage_basepath(self);
 	path = pemalloc(256, 0);
 	sprintf(path,"%s/%s", Z_STRVAL_P(base_path), str);
-	str_efree_rel(base_path->value.str.val);
+	//zval_dtor(base_path);
+	//str_efree_rel(base_path->value.str.val);
 	Z_STRVAL_P(base_path) = path;
 	Z_STRLEN_P(base_path) = sizeof(path) - 1;	//todo -1 or not?
 
@@ -402,7 +352,7 @@ void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 		return;
     }
 
-	buf = pemalloc(file_stat.st_size+1, 0);
+	buf = pemalloc(file_stat.st_size, 0);
 	if (!buf){
 		zend_error(0, "dubbo_file_storage_get alloc stat buf error");
 		return;
@@ -412,17 +362,37 @@ void dubbo_file_storage_get(zval *self, zval *z_str, zval *return_value)
 	fd = open(path, O_RDONLY);
 	if (-1 == fd){
 		php_error_docref(NULL, E_ERROR, "open file %s error", path);
+		return;
 	}
 	nread = read(fd, buf, file_stat.st_size);
 	if (-1 == nread){
-		
 		php_error_docref(NULL, E_ERROR, "read file %s error", path);
 		close(fd);
+		return;
 	}
 	close(fd);
-	options |=  PHP_JSON_OBJECT_AS_ARRAY;
-	php_json_decode_ex(return_value, buf, nread, options, depth TSRMLS_CC);
 
+	
+	//options |=  PHP_JSON_OBJECT_AS_ARRAY;
+	//php_json_decode_ex(return_value, buf, nread, options, depth TSRMLS_CC);
+	zval function_name;
+	zval *params[2];
+	zval ret, z_true;
+	zval z_buf;
+
+	ZVAL_STRING(&function_name, "json_decode", 1);
+	INIT_ZVAL(z_buf);
+	INIT_ZVAL(z_true);
+	ZVAL_STRINGL(&z_buf, buf, file_stat.st_size, 0);
+	params[0] = &z_buf;
+	ZVAL_TRUE(&z_true);
+	params[1] = &z_true;
+	if (SUCCESS != call_user_function(EG(function_table), NULL, &function_name, return_value, 2, params TSRMLS_CC)){
+		zend_error(E_WARNING, "call json_decode error");
+		return;
+	}
+	zval_dtor(&function_name);
+	
 	pefree(buf, 0);
 }
 
@@ -474,7 +444,7 @@ static PHP_METHOD(DubboFileStorage, set)
 	base_path = get_dubbo_file_storage_basepath(self);
 	path = pemalloc(256, 0);
 	sprintf(path,"%s/%s", Z_STRVAL_P(base_path), key);
-	str_efree_rel(base_path->value.str.val);
+	zval_dtor(base_path);
 	Z_STRVAL_P(base_path) = path;
 	Z_STRLEN_P(base_path) = sizeof(path) - 1;	//todo -1 or not?
 

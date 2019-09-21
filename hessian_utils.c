@@ -585,21 +585,21 @@ void hessian_utils_string_length(zval *string, zval *return_value)
 {
 	int len;
 	zval function_name;
-	zval *charset;
+	zval charset;
 	zval *params[1];
 	zval res;
 
 
-	Z_ADDREF_P(string);
-	ALLOC_ZVAL(charset);
-	ZVAL_STRINGL(charset, "UTF-8", 5, 1);
+	//Z_ADDREF_P(string);
+	INIT_ZVAL(charset);
+	ZVAL_STRINGL(&charset, "UTF-8", 5, 1);
 	params[0] = string;
-	params[1] = charset;
+	params[1] = &charset;
 	ZVAL_STRING(&function_name, "mb_strlen", 1);
 	call_user_function(EG(function_table), NULL, &function_name, &res, 2, params TSRMLS_DC);
 	len = Z_LVAL(res);
 
-	FREE_ZVAL(charset);
+	zval_dtor(&charset);
 
 	RETURN_LONG(len);
 }
