@@ -171,7 +171,8 @@ void hessian2_writer_write_string(zval *self, zval *value, zval *return_value)
 
 	//$len = HessianUtils::stringLength($value);
 	INIT_ZVAL(z_len);
-	hessian_utils_string_length(value, &z_len);
+	ZVAL_LONG(&z_len, Z_STRLEN_P(value));
+	//hessian_utils_string_length(value, &z_len);
 	INIT_ZVAL(param1);
 	ZVAL_STRING(&function_name, "pack", 1);
 
@@ -763,8 +764,11 @@ void hessian2_writer_write_array(zval *self, zval *array, zval *return_value)
 		object_list = zend_read_property(NULL, ref_map, ZEND_STRL("objectlist"), 1 TSRMLS_CC);
 		if (Z_TYPE_P(object_list ) != IS_ARRAY){
 			array_init_size(object_list, 1);
+			zend_update_property(NULL, ref_map,  ZEND_STRL("objectlist"), 1 TSRMLS_CC);
+			object_list = zend_read_property(NULL, ref_map, ZEND_STRL("objectlist"), 1 TSRMLS_CC);
 		}
-		zend_hash_next_index_insert(Z_ARRVAL_P(object_list), &array, sizeof(zval **), NULL);
+		//todo:for reference
+		zend_hash_next_index_insert(Z_ARRVAL_P(object_list), &array, sizeof(zval *), NULL);
 
 		INIT_ZVAL(param1);
 		INIT_ZVAL(param2);
@@ -774,7 +778,7 @@ void hessian2_writer_write_array(zval *self, zval *array, zval *return_value)
 			int len;
 
 			
-			len = total += 0x78;
+			len = total + 0x78;
 			ZVAL_LONG(&param2, len);
 			params[0] = &param1;
 			params[1] = &param2;
@@ -829,7 +833,7 @@ void hessian2_writer_write_array(zval *self, zval *array, zval *return_value)
 		}
 
 		char *new_buf, *p;
-		new_buf = pemalloc(buf_len,  0);
+		new_buf = pemalloc(buf_len+1,  0);
 		if (!new_buf){
 			php_error_docref(NULL, E_ERROR, "Hessian2Writer::writeArray alloc memory error");
 			return;
@@ -838,14 +842,17 @@ void hessian2_writer_write_array(zval *self, zval *array, zval *return_value)
 		p = new_buf;
 		memcpy(p, buf, old_buf_len);
 		p += old_buf_len;
+		zval_dtor(&call_res);
+		//pefree(buf, 0);
 		for(i=0; i<total; i++){
 			memcpy(p, Z_STRVAL(zval_ptr[i]), Z_STRLEN(zval_ptr[i]));
 			p += Z_STRLEN(zval_ptr[i]);
 			zval_dtor(&zval_ptr[i]);
 		}
 		pefree(zval_ptr, 0);
+		*p = 0;
 
-		RETURN_STRING(new_buf, 0);
+		RETURN_STRINGL(new_buf, buf_len, 0);
 	}else{
 		//return $this->writeMap($array);
 		zval *res;
@@ -1208,6 +1215,16 @@ static PHP_METHOD(Hessian2Writer, logMsg)
 	//zend_update_property(NULL, self, ZEND_STRL("logMsg"), log_msg TSRMLS_CC);
 }
 
+
+/*
+	Hessian2Writer::setTypeMap
+*/
+void hessian2_writer_set_type_map(zval *self, zval *type_map)
+{
+	zend_update_property(NULL, self, ZEND_STRL("typemap"), type_map TSRMLS_CC);
+}
+
+
 /*
 	Hessian2Writer::setTypeMap
 */
@@ -1221,7 +1238,7 @@ static PHP_METHOD(Hessian2Writer, setTypeMap)
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &type_map)) {
 		return;
 	}
-	zend_update_property(NULL, self, ZEND_STRL("typemap"), type_map TSRMLS_CC);
+	hessian2_writer_set_type_map(self, type_map);
 }
 
 /*
@@ -1257,7 +1274,7 @@ void hessian2_writer_write_value(zval *self, zval *value, zval *return_value)
 		$dispatch = $this->resolveDispatch($type);
 	*/
 	
-	Z_ADDREF_P(value);
+	//Z_ADDREF_P(value);
 	params[0] = value;
 	ZVAL_STRING(&function_name, "gettype", 1);
 	call_user_function(EG(function_table), NULL, &function_name, &type, 1, params TSRMLS_CC);
@@ -1704,12 +1721,7 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 		zval *type_map;
 
 		type_map = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
-		ZVAL_STRING(&function_name, "getRemoteType", 1);
-		//Z_ADDREF_P(z_class);
-		params[0] = z_class;
-		hessian_call_class_function_helper(type_map, &function_name, 1, params, &type);
-		zval_dtor(&function_name);
-		
+		hessian_type_map_get_remote_type(type_map, z_class, &type);
 		
 		if (i_zend_is_true(&type)){
 			z_class = &type;
@@ -1756,7 +1768,7 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 		}
 		p = buf;
 		p[0] = 'C';
-
+		++p;
 		ulong zval_count;
 
 		zval_count = i;

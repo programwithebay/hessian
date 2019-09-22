@@ -150,9 +150,9 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 				array_init_size(local_rules, 2);
 				zend_update_property(NULL,  self, ZEND_STRL("localRules"), local_rules TSRMLS_CC);
 			}
-			ALLOC_ZVAL(new_val);
-			ZVAL_STRING(new_val, Z_STRVAL_P(remote), 1);
-			zend_hash_add(Z_ARRVAL_P(local_rules), rule, strlen(rule)-1, &new_val, sizeof(zval*), NULL);
+			MAKE_STD_ZVAL(new_val);
+			ZVAL_STRINGL(new_val, Z_STRVAL_P(remote), Z_STRLEN_P(remote), 1);
+			zend_hash_add(Z_ARRVAL_P(local_rules), rule, strlen(rule), &new_val, sizeof(zval*), NULL);
 		}else{
 		}
 	}else{
@@ -165,9 +165,9 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 				if (Z_TYPE_P(remote_rules) != IS_ARRAY){
 					array_init_size(remote_rules, 2);
 				}
-				ALLOC_ZVAL(new_val);
-				ZVAL_STRING(new_val, Z_STRVAL_P(local), 1);
-				zend_hash_add(Z_ARRVAL_P(remote_rules), rule, strlen(rule)-1, &new_val, sizeof(zval*), NULL);
+				MAKE_STD_ZVAL(new_val);
+				ZVAL_STRINGL(new_val, Z_STRVAL_P(local),Z_STRLEN_P(local), 1);
+				zend_hash_add(Z_ARRVAL_P(remote_rules), rule, strlen(rule), &new_val, sizeof(zval*), NULL);
 			}
 		}else{
 			char *rule;
@@ -176,10 +176,13 @@ void hessian_type_map_map_type(zval* self, zval *local, zval *remote){
 			types = zend_read_property(NULL, self, ZEND_STRL("types"), 1 TSRMLS_DC);
 			if (Z_TYPE_P(types) != IS_ARRAY){
 				array_init_size(types, 2);
+				zend_update_property(NULL, self,  ZEND_STRL("types"), types TSRMLS_CC);
+				types = zend_read_property(NULL, self, ZEND_STRL("types"), 1 TSRMLS_DC);
 			}
-			ALLOC_ZVAL(new_val);
-			ZVAL_STRING(new_val, Z_STRVAL_P(local), 1);
-			zend_hash_add(Z_ARRVAL_P(types), Z_STRVAL_P(remote), Z_STRLEN_P(remote), (void *)&new_val, sizeof(zval*), NULL);
+			MAKE_STD_ZVAL(new_val);
+			ZVAL_STRINGL(new_val, Z_STRVAL_P(local), Z_STRLEN_P(local), 1);
+			zend_hash_add(Z_ARRVAL_P(types), Z_STRVAL_P(remote), Z_STRLEN_P(remote)+1
+				, (void *)&new_val, sizeof(zval*), NULL);
 		}
 	}
 }
@@ -317,6 +320,74 @@ static PHP_METHOD(HessianTypeMap, getLocalType)
 	}
 }
 
+/*
+	HessianTypeMap::getRemoteType
+*/
+void hessian_type_map_get_remote_type(zval *self, zval *local_type, zval *return_value)
+{
+	zval *remote, *types;
+	zval *local_rules;
+	HashPosition pos;
+	zval **entry;
+	char *str_key;
+	ulong num_index;
+	zval function_name, rule;
+	zval *params[2];
+	zval *preg_res;
+
+	
+
+	/*
+		$remote = array_search($localType, $this->types); 
+		if($remote !== false)
+			return $remote;
+	*/
+	types = zend_read_property(NULL, self, ZEND_STRL("types"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(types) == IS_ARRAY){
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(types), &pos);
+		zval compare_result;
+		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(types), (void **)&entry, &pos) == SUCCESS) {
+			if ( (IS_STRING == Z_TYPE_P(*entry))
+				&& strncmp(Z_STRVAL_PP(entry), Z_STRVAL_P(local_type), Z_STRLEN_P(local_type)) == 0){
+				//zend_hash_get_current_key_ex(Z_ARRVAL_P(types), &str_key, &num_index, 0);
+				RETURN_STRING(pos->arKey, 1);
+			}
+			zend_hash_move_forward_ex(Z_ARRVAL_P(types), &pos);
+		}
+	}
+
+	/*
+		foreach($this->localRules as $rule => $remote){
+			if(preg_match($rule, $localType)){
+				return $remote;
+			}
+		}
+		//return false;
+		return $localType;
+	*/
+	
+	
+	local_rules = zend_read_property(NULL, self, ZEND_STRL("localRules"), 1 TSRMLS_CC);
+	if (Z_TYPE_P(local_rules) != IS_ARRAY){
+		RETURN_ZVAL(local_type, 1, NULL);
+	}
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(local_rules), &pos);
+	ZVAL_STRING(&function_name, "preg_match", 1);
+	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(local_rules), (void **)&entry, &pos) == SUCCESS) {
+		zend_hash_get_current_key(Z_ARRVAL_P(local_rules), &str_key, &num_index, 0);
+		ZVAL_STRING(&rule, str_key, 1);
+		params[0] = &rule;
+		params[1] = local_type;
+		call_user_function(EG(function_table), NULL, &function_name, preg_res, 2, params TSRMLS_DC);
+		if (i_zend_is_true(preg_res)){
+			RETURN_ZVAL(*entry, 1, NULL);
+		}
+		zend_hash_move_forward_ex(Z_ARRVAL_P(local_rules), &pos);
+	}
+
+	RETURN_ZVAL(local_type, 1, NULL);
+}
+
 
 
 /*
@@ -345,55 +416,7 @@ static PHP_METHOD(HessianTypeMap, getRemoteType)
 	}
 	self = getThis();
 
-	/*
-		$remote = array_search($localType, $this->types); 
-		if($remote !== false)
-			return $remote;
-	*/
-	types = zend_read_property(NULL, self, ZEND_STRL("types"), 1 TSRMLS_DC);
-	if (Z_TYPE_P(types) == IS_ARRAY){
-		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(types), &pos);
-		zval compare_result;
-		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(types), (void **)&entry, &pos) == SUCCESS) {
-			if ( (IS_STRING == Z_TYPE_P(*entry))
-				&& strncmp(Z_STRVAL_PP(entry), Z_STRVAL_P(local_type), Z_STRLEN_P(local_type)) == 0){
-				zend_hash_get_current_key(Z_ARRVAL_P(types), &str_key, &num_index, 0);
-				RETURN_STRING(str_key, 1);
-			}
-			zend_hash_move_forward_ex(Z_ARRVAL_P(types), &pos);
-		}
-	}
-
-	/*
-		foreach($this->localRules as $rule => $remote){
-			if(preg_match($rule, $localType)){
-				return $remote;
-			}
-		}
-		//return false;
-		return $localType;
-	*/
-	
-	
-	local_rules = zend_read_property(NULL, self, ZEND_STRL("localRules"), 1 TSRMLS_DC);
-	if (Z_TYPE_P(local_rules) != IS_ARRAY){
-		RETURN_ZVAL(local_type, 1, NULL);
-	}
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(local_rules), &pos);
-	ZVAL_STRING(&function_name, "preg_match", 1);
-	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(local_rules), (void **)&entry, &pos) == SUCCESS) {
-		zend_hash_get_current_key(Z_ARRVAL_P(local_rules), &str_key, &num_index, 0);
-		ZVAL_STRING(&rule, str_key, 1);
-		params[0] = &rule;
-		params[1] = local_type;
-		call_user_function(EG(function_table), NULL, &function_name, preg_res, 2, params TSRMLS_DC);
-		if (i_zend_is_true(preg_res)){
-			RETURN_ZVAL(*entry, 1, NULL);
-		}
-		zend_hash_move_forward_ex(Z_ARRVAL_P(local_rules), &pos);
-	}
-
-	RETURN_ZVAL(local_type, 1, NULL);
+	hessian_type_map_get_remote_type(self, local_type, return_value);
 }
 
 

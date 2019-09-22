@@ -93,7 +93,7 @@ zval* __handleCallbacks(zval* self, zval* callbacks, zval* arguments){
 	zval *params[2];
 	zval *typemap;
 	
-	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_DC);
+	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
 	hessian_type_map_map_type(typemap, local, remote);
 	
 	//ZVAL_STRING(&function_name, "mapType", 1);
@@ -136,10 +136,9 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 
 	
 	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
-	params[0]= typemap;
-	ZVAL_STRING(&function_name, "setTypeMap", 1);
-	hessian_call_class_function_helper(writer, &function_name, 1, params, &retval);
-	zval_dtor(&function_name);
+	Z_ADDREF_P(typemap);
+	hessian2_writer_set_type_map(writer, typemap);
+
 
 
 	/*
