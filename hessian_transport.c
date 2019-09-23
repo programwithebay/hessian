@@ -351,6 +351,7 @@ void hessian_curl_transport_get_stream(zval *self, zval *url, zval *data, zval *
 	}
 
 	zval stream;
+	INIT_ZVAL(stream);
 	object_init_ex(&stream, hessian_stream_entry);
 
 	//call __construct function

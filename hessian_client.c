@@ -136,7 +136,7 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 
 	
 	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
-	Z_ADDREF_P(typemap);
+	//Z_ADDREF_P(typemap);
 	hessian2_writer_set_type_map(writer, typemap);
 
 
@@ -211,7 +211,7 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 		$ctx->stream = $stream;
 	*/
 
-	ALLOC_ZVAL(stream);
+	MAKE_STD_ZVAL(stream);
 	hessian_curl_transport_get_stream(transport, url, payload, options, stream);
 	if (Z_TYPE_P(stream) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "call $transport->getStream error");
@@ -481,6 +481,9 @@ int hessian_call_class_function_helper(zval *self, zval *function_name, int para
 			COPY_PZVAL_TO_ZVAL(*return_value, *(fci.retval_ptr_ptr));
 		}
 	}
+
+	//zval_dtor(&caller);
+	//zval_dtor(&arr_params);
 
 	zend_fcall_info_args_clear(&fci, 1);
 	return SUCCESS;

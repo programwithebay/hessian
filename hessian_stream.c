@@ -180,7 +180,7 @@ static PHP_METHOD(HessianStream, peek)
 /*
 	HessianStream::read
 */
-void hessian_stream_read(zval *self, long count, zval *return_value)
+int hessian_stream_read(zval *self, long count, zval *return_value)
 {
 	zval  *z_pos;
 	long pos, len;
@@ -211,8 +211,8 @@ void hessian_stream_read(zval *self, long count, zval *return_value)
 	
 	buf = Z_STRVAL_P(z_bytes);
 	
-	if ((pos + count) >= Z_STRLEN_P(z_bytes)){
-		zend_error(E_ERROR, "read past end of stream:");
+	if ((pos + count) > Z_STRLEN_P(z_bytes)){
+		//zend_error(E_ERROR, "read past end of stream:");
 		RETURN_FALSE;
 	}
 
@@ -225,7 +225,8 @@ void hessian_stream_read(zval *self, long count, zval *return_value)
 	Z_LVAL_P(z_pos) = pos;
 	zend_update_property(NULL, self, ZEND_STRL("pos"), z_pos TSRMLS_DC);
 	
-	RETURN_STRING(ret_buf, 0);
+	RETVAL_STRING(ret_buf, 0);
+	return SUCCESS;
 }
 
 

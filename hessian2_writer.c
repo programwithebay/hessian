@@ -764,7 +764,7 @@ void hessian2_writer_write_array(zval *self, zval *array, zval *return_value)
 		object_list = zend_read_property(NULL, ref_map, ZEND_STRL("objectlist"), 1 TSRMLS_CC);
 		if (Z_TYPE_P(object_list ) != IS_ARRAY){
 			array_init_size(object_list, 1);
-			zend_update_property(NULL, ref_map,  ZEND_STRL("objectlist"), 1 TSRMLS_CC);
+			zend_update_property(NULL, ref_map,  ZEND_STRL("objectlist"), object_list TSRMLS_CC);
 			object_list = zend_read_property(NULL, ref_map, ZEND_STRL("objectlist"), 1 TSRMLS_CC);
 		}
 		//todo:for reference

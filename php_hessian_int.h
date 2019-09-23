@@ -47,7 +47,7 @@ PHP_FUNCTION(calltest);
 void hessian_buffered_stream_free_storage(void *object TSRMLS_DC);
 
 zend_object_value hessian_buffered_stream_create_handler(zend_class_entry *type TSRMLS_DC);
-void hessian2_parser_read(zval *self, ulong count, zval *return_value);
+int hessian2_parser_read(zval *self, ulong count, zval *return_value);
 
 
 //class entry

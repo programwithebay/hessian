@@ -73,16 +73,16 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	zval *params[2];
 	zval *filters, *date_array, *parse_filters;
 	zval *date_param1, *date_param2, *callback_handler;
-	zval *retval, arr_params;
+	zval retval, arr_params;
 
-	ALLOC_ZVAL(retval);
+	INIT_ZVAL(retval);
 	ALLOC_ZVAL(parser);
 	object_init_ex(parser, hessian2_service_parser_entry);
 	array_init_size(&arr_params, 2);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0]  = stream;
 	params[1] = options;
-	hessian_call_class_function_helper(parser, &function_name, 2, params, retval);
+	hessian_call_class_function_helper(parser, &function_name, 2, params, &retval);
 	zval_dtor(&arr_params);
 
 
@@ -106,7 +106,7 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	array_init_size(filters, 1);
 	zend_hash_add(Z_ARRVAL_P(filters), "date", 4, &date_array, sizeof(zval*), NULL);
 
-	parse_filters = zend_read_property(NULL, options, "parseFilters", strlen("parseFilters")-1, 1 TSRMLS_DC);
+	parse_filters = zend_read_property(NULL, options, "parseFilters", strlen("parseFilters")-1, 1 TSRMLS_CC);
 	php_array_merge(Z_ARRVAL_P(filters), Z_ARRVAL_P(parse_filters), 0 TSRMLS_CC);
 
 	ALLOC_ZVAL(callback_handler);
@@ -115,7 +115,7 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	zval_dtor(&function_name);
 	array_init_size(&arr_params, 1);
 	params[0] = filters;
-	hessian_call_class_function_helper(callback_handler, &function_name, 1, params, retval);
+	hessian_call_class_function_helper(callback_handler, &function_name, 1, params, &retval);
 	
 
 	
@@ -123,14 +123,12 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	ZVAL_STRING(&function_name, "setFilters", 1);
 	array_init_size(&arr_params, 1);
 	params[0] = callback_handler;
-	hessian_call_class_function_helper(parser, &function_name, 1, params, retval);
+	hessian_call_class_function_helper(parser, &function_name, 1, params, &retval);
 	zval_dtor(&function_name);
-	zval_dtor(retval);
+	zval_dtor(&retval);
 
-	FREE_ZVAL(retval);
 	
 	return parser;
-
 }
 
 //load version2 writer

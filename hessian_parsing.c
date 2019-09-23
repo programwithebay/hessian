@@ -100,7 +100,10 @@ static PHP_METHOD(HessianRef, isRef)
 		RETURN_FALSE;
 	}
 
-	RETURN_BOOL(instanceof_function(Z_OBJCE_P(val), hessian_ref_entry TSRMLS_DC));
+	if (Z_TYPE_P(val) != IS_OBJECT){
+		RETURN_FALSE;
+	}
+	RETURN_BOOL(instanceof_function(Z_OBJCE_P(val), hessian_ref_entry TSRMLS_CC));
 }
 
 
@@ -188,7 +191,7 @@ const zend_function_entry hessian_call_functions[] = {
 
 //HessianRef functions
 const zend_function_entry hessian_ref_functions[] = {
-	PHP_ME(HessianRef, isRef, 	arginfo_hessian_ref_isref,		ZEND_ACC_PUBLIC)
+	PHP_ME(HessianRef, isRef, 	arginfo_hessian_ref_isref,		ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_ME(HessianRef, getIndex, 	arginfo_hessian_ref_get_index,		ZEND_ACC_PUBLIC)
 	PHP_ME(HessianRef, __construct, 	arginfo_hessian_ref_construct,		ZEND_ACC_PUBLIC)
 	PHP_FE_END	/* Must be the last line in hessian_functions[] */
