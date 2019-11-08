@@ -25,6 +25,18 @@
 #ifndef _PHP_HESSIAN_INIT_H_
 #define _PHP_HESSIAN_INIT_H_ 1
 
+
+#define SET_CLASS_STR_MEMBER(obj, key, z) if (obj->key != NULL){ \
+	efree(obj->key); \
+} \
+obj->key = estrndup(Z_STRVAL_P(z), Z_STRLEN_P(z))
+
+#define SET_CLASS_STR_MEMBER_STR(obj, key, s) if (obj->key != NULL){ \
+	efree(obj->key); \
+} \
+obj->key = estrndup(s, strlen(s))
+
+
 extern zend_object_handlers hessian_buffered_stream_object_handlers;
 
 
@@ -40,6 +52,10 @@ void hessian2_parser_log_msg();	//hessian2 log msg
 zend_object_value dubbo_client_create_handler(zend_class_entry *type TSRMLS_DC);
 PHP_FUNCTION(calltest);
 
+
+//dubbo service
+zend_object_value dubbo_service_create_handler(zend_class_entry *type TSRMLS_DC);
+extern zend_object_handlers dubbo_service_object_handlers;
 
 
 

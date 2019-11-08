@@ -69,11 +69,12 @@ void hessian2_service_parser_parse_reply(zval *self, zval *return_value)
 		return $this->parse(); 
 	*/
 
-	ZVAL_STRING(&param_msg, "Parsing reply", 1);
-	hessian2_parser_log_msg(self, &param_msg);
+	//ZVAL_STRING(&param_msg, "Parsing reply", 1);
+	//hessian2_parser_log_msg(self, &param_msg);
 
 	hessian2_parser_parse(self, NULL, NULL, &res);
 
+	//string?
 	RETURN_ZVAL(&res, 1,  NULL);
 }
 
@@ -86,7 +87,7 @@ void hessian2_service_parser_parse_call(zval *self, zval *return_value)
 	zval call, *call_method, num;
 	zval *arguments;
 	zval param_msg, function_name;
-	zval param1, param2;
+	zval param1, *param2;
 	zval *params[1];
 	int i;
 
@@ -97,24 +98,25 @@ void hessian2_service_parser_parse_call(zval *self, zval *return_value)
 		$call->method = $this->parse(null, 'string');
 	*/
 
-	ZVAL_STRING(&param_msg, "Parsing call", 1);
-	hessian2_parser_log_msg(self, &param_msg);
+	//ZVAL_STRING(&param_msg, "Parsing call", 1);
+	//hessian2_parser_log_msg(self, &param_msg);
 
 	object_init_ex(&call, hessian_call_entry);
 	
 
 	//$call->method = $this->parse(null, 'string');
 	Z_TYPE(param1) = IS_NULL;
-	ZVAL_STRING(&param2, "string", 1);
+	ZVAL_STRING(param2, "string", 1);
 
 	ALLOC_ZVAL(call_method);
-	hessian2_parser_parse(self, &param1, &param2, call_method);
+	ALLOC_ZVAL(param2);
+	hessian2_parser_parse(self, &param1, param2, call_method);
 
 	zend_update_property(NULL, &call, ZEND_STRL("method"), call_method TSRMLS_DC);
 	
 	//$num = $this->parse(null, 'integer');
-	ZVAL_STRING(&param2, "integer", 1);
-	hessian2_parser_parse(self, &param1, &param2, &num);
+	ZVAL_STRING(param2, "integer", 1);
+	hessian2_parser_parse(self, &param1, param2, &num);
 
 
 	/*
@@ -132,15 +134,13 @@ void hessian2_service_parser_parse_call(zval *self, zval *return_value)
 	arguments = zend_read_property(NULL, &call, ZEND_STRL("arguments"), 1 TSRMLS_CC);
 	if (Z_TYPE_P(arguments) != IS_ARRAY){
 		array_init_size(arguments, 4);
-		//zend_update_property(NULL, &call, ZEND_STRL("arguments"), arguments TSRMLS_CC);
+		zend_update_property(NULL, &call, ZEND_STRL("arguments"), arguments TSRMLS_CC);
 	}
 
 	zval *arg;
-	ZVAL_STRING(&function_name, "parseCheck", 1);
 	for(i=0; i<Z_LVAL(num); i++){
 		ALLOC_ZVAL(arg);
 		hessian2_parser_parse_check(self, NULL, arg);
-		//call_user_function(NULL, &self, &function_name, arg, 0, params TSRMLS_DC);
 		zend_hash_next_index_insert(Z_ARRVAL_P(arguments), &arg, sizeof(zval **), NULL);
 	}
 
@@ -282,8 +282,9 @@ void hessian2_service_parser_parse_top(zval *self, zval *return_value)
 		$value = null;
 	*/
 
-	ZVAL_STRING(&param_msg, "'Parsing top element'", 1);
-	hessian2_parser_log_msg(self, &param_msg);
+	//ZVAL_STRING(&param_msg, "'Parsing top element'", 1);
+	//hessian2_parser_log_msg(self, &param_msg);
+	
 
 	//parseVersion
 	hessian2_parser_read(self, 3, &ret);
@@ -311,7 +312,7 @@ void hessian2_service_parser_parse_top(zval *self, zval *return_value)
 	*/
 
 	if(Z_TYPE(code) !=  IS_STRING){
-		php_error_docref(NULL, E_WARNING, "code is not a string");
+		php_error_docref(NULL, E_WARNING, "hessian2_service_parser_parse_top read error");
 		return;
 	}
 
@@ -338,6 +339,9 @@ void hessian2_service_parser_parse_top(zval *self, zval *return_value)
 			sprintf(msg_buf, "Code %s not recognized as a top element", Z_STRVAL(code)[0]);
 			zend_error(E_WARNING, msg_buf);
 	}
+	
+	zval_dtor(&ret);
+	zval_dtor(&code);
 }
 
 

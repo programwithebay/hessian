@@ -1170,6 +1170,7 @@ static PHP_METHOD(Hessian2Writer, __construct)
 	ALLOC_ZVAL(type_map);
 	object_init_ex(type_map, hessian_type_map_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
+	Z_ADDREF_P(arr);
 	params[0] = arr;
 	hessian_call_class_function_helper(type_map, &function_name, 1, params, &ret);
 	zval_dtor(&function_name);
@@ -1177,9 +1178,10 @@ static PHP_METHOD(Hessian2Writer, __construct)
 
 	zend_update_property(NULL, self, ZEND_STRL("options"), options TSRMLS_CC);
 
-	ALLOC_ZVAL(log_msg);
-	array_init_size(log_msg, 1);
-	zend_update_property(NULL, self, ZEND_STRL("logMsg"), log_msg TSRMLS_CC);
+
+	//ALLOC_ZVAL(log_msg);
+	//array_init_size(log_msg, 1);
+	//zend_update_property(NULL, self, ZEND_STRL("logMsg"), log_msg TSRMLS_CC);
 
 
 	//FREE_ZVAL(arr);
@@ -1651,11 +1653,9 @@ static PHP_METHOD(Hessian2Writer, writeObjectData)
 
 	ref_map = zend_read_property(NULL, self, ZEND_STRL("refmap"), 1 TSRMLS_CC);
 	ZVAL_STRING(&function_name, "getClassIndex", 1);
-	Z_ADDREF_P(z_class);
 	params[0] = z_class;
 	hessian_call_class_function_helper(ref_map, &function_name, 1, params,  &index);
 	zval_dtor(&function_name);
-	Z_DELREF_P(z_class);
 
 
 

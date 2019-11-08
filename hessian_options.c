@@ -208,12 +208,13 @@ void hessian_options_resolve_options(zval *object, zval *return_value)
 			hessian_options_from_array(options, object);
 		}
 	}else{
+		zval_dtor(options);
 		zend_error(E_ERROR, "unknown options");
 		return;
 	}
 
-
-	RETURN_ZVAL(options, 0, NULL);
+	RETVAL_ZVAL(options, 0, 1);
+	//RETURN_ZVAL(options, 0, NULL);
 }
 
 

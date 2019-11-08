@@ -122,12 +122,12 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 	options = zend_read_property(NULL, self, ZEND_STRL("options"), 1 TSRMLS_CC);
 	typemap = zend_read_property(NULL, self, ZEND_STRL("typemap"), 1 TSRMLS_CC);
 
-	ALLOC_ZVAL(transport);
+	MAKE_STD_ZVAL(transport);
 	hessian_factory_get_transport(factory, options, transport);
 
 
 	Z_TYPE(z_null) = IS_NULL;
-	ALLOC_ZVAL(writer);
+	MAKE_STD_ZVAL(writer);
 	hessian_factory_get_writer(factory, &z_null, options, writer);
 	if (Z_TYPE_P(writer) != IS_OBJECT){
 		php_error_docref(NULL, E_WARNING, "call factory->getWriter error");
@@ -218,14 +218,14 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 		return;
 	}
 
-	factory = zend_read_property(NULL, self, ZEND_STRL("factory"), 0 TSRMLS_DC);
-	ALLOC_ZVAL(parser);
+	factory = zend_read_property(NULL, self, ZEND_STRL("factory"), 0 TSRMLS_CC);
+	MAKE_STD_ZVAL(parser);
 	hessian_factory_get_parser(factory, stream, options, parser);
 
 	hessian2_parser_set_type_map(parser, typemap);
 	
-	zend_update_property(NULL, ctx, ZEND_STRL("parser"), parser TSRMLS_DC);
-	zend_update_property(NULL, ctx, ZEND_STRL("stream"), stream TSRMLS_DC);
+	zend_update_property(NULL, ctx, ZEND_STRL("parser"), parser TSRMLS_CC);
+	zend_update_property(NULL, ctx, ZEND_STRL("stream"), stream TSRMLS_CC);
 
 	/*
 	try{
@@ -256,8 +256,11 @@ void hessian_client__hessianCall(zval *self, zval *method, zval *arguments, zval
 		}
 	}
 	
-	after = zend_read_property(Z_OBJCE_P(options), options, ZEND_STRL("after"), 0 TSRMLS_DC);
+	after = zend_read_property(Z_OBJCE_P(options), options, ZEND_STRL("after"), 0 TSRMLS_CC);
 	__handleCallbacks(self, after, &args);
+
+
+	zval_dtor(&args);
 
 	/*
 	if($ctx->error instanceof Exception)
@@ -471,6 +474,7 @@ int hessian_call_class_function_helper(zval *self, zval *function_name, int para
 
 	array_init_size(&arr_params, params_count);
 	for(i=0; i<params_count; i++){
+		zval_addref_p(params[i]);
 		add_index_zval(&arr_params, i, params[i]);
 	}
 	zend_fcall_info_args(&fci, &arr_params TSRMLS_CC);
@@ -483,7 +487,7 @@ int hessian_call_class_function_helper(zval *self, zval *function_name, int para
 	}
 
 	//zval_dtor(&caller);
-	//zval_dtor(&arr_params);
+	zval_dtor(&arr_params);
 
 	zend_fcall_info_args_clear(&fci, 1);
 	return SUCCESS;

@@ -115,45 +115,23 @@ void register_hessian_base_class(){
 	}
 	zend_declare_property_null(dubbo_file_storage_class_entry, ZEND_STRL(BASE_PATH),  ZEND_ACC_PUBLIC TSRMLS_CC);
 
+
+
 	//register DubboService Class
 	INIT_CLASS_ENTRY(ce_dubbo_service, "DubboService", dubbo_service_functions);
 	dubbo_service_class_entry = zend_register_internal_class(&ce_dubbo_service TSRMLS_CC);
-	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("name"),  ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("providers"),  ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(dubbo_service_class_entry,ZEND_STRL("curProviderIndex"),  0, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_bool(dubbo_service_class_entry,ZEND_STRL("initProvider"),  0, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("consumers"),  ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("storage"),  ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("options"),  ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_service_class_entry,ZEND_STRL("dtoMap"),  ZEND_ACC_PUBLIC TSRMLS_CC);
+	dubbo_service_class_entry->create_object = dubbo_service_create_handler;
+	memcpy(&dubbo_service_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+    dubbo_service_object_handlers.clone_obj = NULL;
+	
 
 
 	//register DubboClient Class
 	INIT_CLASS_ENTRY(ce_dubbo_client, "DubboClient", hessian_functions);
 	dubbo_client_class_entry = zend_register_internal_class(&ce_dubbo_client TSRMLS_CC);
-
-
 	dubbo_client_class_entry->create_object = dubbo_client_create_handler;
     memcpy(&dubbo_client_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
     dubbo_client_object_handlers.clone_obj = NULL;
-	
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("storage"),  ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("logCallback"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("version"), "1.0.0", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("group"), "cn", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(dubbo_client_class_entry, ZEND_STRL("connectTimeout"), 2, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(dubbo_client_class_entry, ZEND_STRL("executeTimeout"), 5, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_long(dubbo_client_class_entry, ZEND_STRL("retries"), 2, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("dubbo"), "2.5.3.1-SNAPSHOT", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("loadbalance"), "random", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("methods"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("interface"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("owner"), "php", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("protocol"), "http", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_string(dubbo_client_class_entry, ZEND_STRL("side"), "consumer", ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("timestamp"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("serviceConfig"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(dubbo_client_class_entry, ZEND_STRL("dtoMapConfig"), ZEND_ACC_PUBLIC TSRMLS_CC);
 }
 
 

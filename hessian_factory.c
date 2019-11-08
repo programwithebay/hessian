@@ -116,7 +116,7 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	array_init_size(&arr_params, 1);
 	params[0] = filters;
 	hessian_call_class_function_helper(callback_handler, &function_name, 1, params, &retval);
-	
+	zval_dtor(&arr_params);
 
 	
 	//$parser->setFilters(new HessianCallbackHandler($filters));
@@ -126,6 +126,7 @@ zval* hessian_object_factory_load_version2_parser(zval *self, zval *stream, zval
 	hessian_call_class_function_helper(parser, &function_name, 1, params, &retval);
 	zval_dtor(&function_name);
 	zval_dtor(&retval);
+	zval_dtor(&arr_params);
 
 	
 	return parser;
@@ -144,6 +145,7 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 
 	//$writer = new Hessian2ServiceWriter($options);
 	ALLOC_ZVAL(hessian2_service_writer);
+	INIT_PZVAL(hessian2_service_writer);
 	object_init_ex(hessian2_service_writer, hessian2_service_writer_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = options;
@@ -153,15 +155,21 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 
 	//$filters['@DateTime'] = array('HessianDatetimeAdapter','writeTime');
 	ALLOC_ZVAL(time_arr_params1);
+	INIT_PZVAL(time_arr_params1);
 	ZVAL_STRING(time_arr_params1, "HessianDatetimeAdapter", 1);
+	
 	ALLOC_ZVAL(time_arr_params2);
+	INIT_PZVAL(time_arr_params2);
 	ZVAL_STRING(time_arr_params2, "writeTime", 1);
+	
 	ALLOC_ZVAL(time_arr);
+	INIT_PZVAL(time_arr);
 	array_init_size(time_arr, 2);
 	zend_hash_next_index_insert(Z_ARRVAL_P(time_arr), &time_arr_params1, sizeof(zval*), NULL);
 	zend_hash_next_index_insert(Z_ARRVAL_P(time_arr), &time_arr_params2, sizeof(zval*), NULL);
 	
 	ALLOC_ZVAL(filters);
+	INIT_PZVAL(filters);
 	array_init_size(filters, 2);
 	zend_hash_add(Z_ARRVAL_P(filters), ("@DateTime"), sizeof("@DateTime")-1, &time_arr, sizeof(zval *), NULL);
 
@@ -171,6 +179,7 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 	//$filters['@Iterator'] = array( new Hessian2IteratorWriter(), 'write');
 	//add Iterator
 	ALLOC_ZVAL(iterator_arr_param1);
+	INIT_PZVAL(iterator_arr_param1);
 	object_init_ex(iterator_arr_param1, hessian2_iterator_writer_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	hessian_call_class_function_helper(iterator_arr_param1, &function_name, 0, params, &retval);
@@ -178,8 +187,11 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 
 	
 	ALLOC_ZVAL(iterator_arr_param2);
+	INIT_PZVAL(iterator_arr_param2);
 	ZVAL_STRING(iterator_arr_param2, "write", 1);
+	
 	ALLOC_ZVAL(iterator_arr);
+	INIT_PZVAL(iterator_arr);
 	array_init_size(iterator_arr, 2);
 	zend_hash_next_index_insert(Z_ARRVAL_P(iterator_arr), &iterator_arr_param1, sizeof(zval*), NULL);
 	zend_hash_next_index_insert(Z_ARRVAL_P(iterator_arr), &iterator_arr_param2, sizeof(zval*), NULL);
@@ -197,11 +209,14 @@ zval* hessian_object_factory_load_version2_writer(zval *self, zval *stream, zval
 		return $writer;
 	*/
 	ALLOC_ZVAL(callback_handler);
+	INIT_PZVAL(callback_handler);
 	object_init_ex(callback_handler, hessian_callback_handler_entry);
 	ZVAL_STRING(&function_name, "__construct", 1);
 	params[0] = filters;
 	hessian_call_class_function_helper(callback_handler, &function_name, 1, params, &retval);
 	zval_dtor(&function_name);
+
+	zval_dtor(filters);
 
 
 	ZVAL_STRING(&function_name, "setFilters", 1);
@@ -524,8 +539,11 @@ void hessian_factory_get_parser(zval  *self, zval *stream, zval *options, zval *
 	//parser factory
 	ALLOC_ZVAL(obj_factory);
 	object_init_ex(obj_factory, hessian_object_factory_entry);
-	zend_update_property(NULL, parser, ZEND_STRL("objectFactory"), obj_factory TSRMLS_DC);
-	RETURN_ZVAL(parser, 0, NULL);
+	zend_update_property(NULL, parser, ZEND_STRL("objectFactory"), obj_factory TSRMLS_CC);
+
+
+	RETVAL_ZVAL(parser, 0, NULL);
+	FREE_ZVAL(parser);
 }
 
 
